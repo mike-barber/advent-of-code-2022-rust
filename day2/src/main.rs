@@ -1,7 +1,11 @@
 use std::{fs::File, io::Read};
 
+// this allows us to map a string to an enum value
+// e.g. "A" -> Opponent::A
 use strum::EnumString;
 
+/// Domain model: opponent's input, which
+/// gets mapped to rock, paper or scissors.
 #[derive(Copy, Clone, EnumString)]
 enum Opponent {
     A, // rock
@@ -9,6 +13,9 @@ enum Opponent {
     C, // scissors
 }
 
+/// Domain model: "my" input, X, Y or Z; this
+/// means different things depending on the part
+/// of the problem.
 #[derive(Copy, Clone, EnumString)]
 enum Myself {
     X, // rock (part1); lose (part2)
@@ -16,6 +23,8 @@ enum Myself {
     Z, // scissors (part1); win (part2)
 }
 
+/// Domain model: Rock, Paper or Scissors, with
+/// the value of the play as the enum value.
 #[derive(Copy, Clone)]
 enum Play {
     R = 1,
@@ -23,6 +32,7 @@ enum Play {
     S = 3,
 }
 
+// both parts - map opponent's input to a play
 impl From<Opponent> for Play {
     fn from(opp: Opponent) -> Self {
         match opp {
@@ -55,6 +65,8 @@ impl From<Myself> for Outcome {
     }
 }
 
+/// Domain model: result of the round, with
+/// associated value.
 #[derive(Copy, Clone)]
 enum Outcome {
     Lose = 0,
@@ -63,9 +75,8 @@ enum Outcome {
 }
 
 mod part1 {
-    use std::str::FromStr;
-
     use crate::{Myself, Opponent, Outcome, Play};
+    use std::str::FromStr;
 
     fn outcome(opp: Opponent, me_play: Play) -> Outcome {
         let opp_play: Play = opp.into();
@@ -105,7 +116,6 @@ mod part1 {
             let (opp, me) = parse_round(round);
             score_round(opp, me)
         });
-
         let total: i32 = rounds.sum();
 
         println!("Total score for part 1: {total}");
@@ -133,9 +143,8 @@ C Z";
 }
 
 mod part2 {
-    use std::str::FromStr;
-
     use crate::{Myself, Opponent, Outcome, Play};
+    use std::str::FromStr;
 
     fn required_play(opp: Opponent, outcome: Outcome) -> Play {
         let opp_play: Play = opp.into();
@@ -174,7 +183,6 @@ mod part2 {
             let (opp, me) = parse_round(round);
             score_round(opp, me)
         });
-
         let total: i32 = rounds.sum();
 
         println!("Total score for part 1: {total}");
