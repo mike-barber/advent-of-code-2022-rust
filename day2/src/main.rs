@@ -126,15 +126,15 @@ mod part1 {
         use crate::part1::{parse_round, score_round};
         const EXPECTED_VALS: [i32; 3] = [8, 1, 6];
         const TEST_INPUT: &str = "A Y
-B X
-C Z";
+            B X
+            C Z";
 
         #[test]
         fn scores_correct() {
             let rounds = TEST_INPUT.lines();
 
             for (round, expected) in rounds.zip(EXPECTED_VALS) {
-                let (opp, me) = parse_round(round);
+                let (opp, me) = parse_round(round.trim());
                 let score = score_round(opp, me);
                 assert_eq!(score, expected);
             }
@@ -193,15 +193,15 @@ mod part2 {
         use crate::part2::{parse_round, score_round};
         const EXPECTED_VALS: [i32; 3] = [4, 1, 7];
         const TEST_INPUT: &str = "A Y
-B X
-C Z";
+            B X
+            C Z";
 
         #[test]
         fn scores_correct() {
             let rounds = TEST_INPUT.lines();
 
             for (round, expected) in rounds.zip(EXPECTED_VALS) {
-                let (opp, me) = parse_round(round);
+                let (opp, me) = parse_round(round.trim());
                 let score = score_round(opp, me);
                 assert_eq!(score, expected);
             }
