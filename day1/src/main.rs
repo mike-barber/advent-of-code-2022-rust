@@ -39,7 +39,7 @@ fn iterators() -> anyhow::Result<()> {
     sums.sort_by_key(|x| -x);
 
     // check we have sufficient items in the vec, since we're about
-    // to just do straight up indexing (and this would panic if the 
+    // to just do straight up indexing (and this would panic if the
     // vec was too short...
     if sums.len() < 3 {
         anyhow::bail!("too few groups")

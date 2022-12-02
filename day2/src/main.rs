@@ -1,4 +1,4 @@
-use std::{str::FromStr, fs::File, io::Read};
+use std::{fs::File, io::Read};
 
 use strum::EnumString;
 
@@ -11,16 +11,18 @@ enum Opponent {
 
 #[derive(Copy, Clone, EnumString)]
 enum Myself {
-    X = 1, // rock
-    Y = 2, // paper
-    Z = 3, // scissors
+    X, // rock (part1); lose (part2)
+    Y, // paper (part1); draw (part2)
+    Z, // scissors (part1); win (part2)
 }
 
+#[derive(Copy, Clone)]
 enum Play {
-    R,
-    P,
-    S,
+    R = 1,
+    P = 2,
+    S = 3,
 }
+
 impl From<Opponent> for Play {
     fn from(opp: Opponent) -> Self {
         match opp {
@@ -30,12 +32,25 @@ impl From<Opponent> for Play {
         }
     }
 }
+
+// part 1 - map second column to a play
 impl From<Myself> for Play {
     fn from(myself: Myself) -> Self {
         match myself {
             Myself::X => Play::R,
             Myself::Y => Play::P,
             Myself::Z => Play::S,
+        }
+    }
+}
+
+// part 2 - map second column to an outcome
+impl From<Myself> for Outcome {
+    fn from(myself: Myself) -> Self {
+        match myself {
+            Myself::X => Outcome::Lose,
+            Myself::Y => Outcome::Draw,
+            Myself::Z => Outcome::Win,
         }
     }
 }
@@ -47,74 +62,152 @@ enum Outcome {
     Win = 6,
 }
 
-fn outcome(opp: Opponent, me: Myself) -> Outcome {
-    let opp_play: Play = opp.into();
-    let me_play: Play = me.into();
+mod part1 {
+    use std::str::FromStr;
 
-    match (me_play, opp_play) {
-        (Play::R, Play::R) => Outcome::Draw,
-        (Play::R, Play::P) => Outcome::Lose,
-        (Play::R, Play::S) => Outcome::Win,
-        (Play::P, Play::R) => Outcome::Win,
-        (Play::P, Play::P) => Outcome::Draw,
-        (Play::P, Play::S) => Outcome::Lose,
-        (Play::S, Play::R) => Outcome::Lose,
-        (Play::S, Play::P) => Outcome::Win,
-        (Play::S, Play::S) => Outcome::Draw,
+    use crate::{Myself, Opponent, Outcome, Play};
+
+    fn outcome(opp: Opponent, me_play: Play) -> Outcome {
+        let opp_play: Play = opp.into();
+        match (me_play, opp_play) {
+            (Play::R, Play::R) => Outcome::Draw,
+            (Play::R, Play::P) => Outcome::Lose,
+            (Play::R, Play::S) => Outcome::Win,
+            (Play::P, Play::R) => Outcome::Win,
+            (Play::P, Play::P) => Outcome::Draw,
+            (Play::P, Play::S) => Outcome::Lose,
+            (Play::S, Play::R) => Outcome::Lose,
+            (Play::S, Play::P) => Outcome::Win,
+            (Play::S, Play::S) => Outcome::Draw,
+        }
     }
-}
 
-fn score_round(opp: Opponent, me: Myself) -> i32 {
-    let outcome = outcome(opp, me);
-    let outcome_value = outcome as i32;
-    let my_choice_value = me as i32;
-    outcome_value + my_choice_value
-}
+    fn score_round(opp: Opponent, me: Myself) -> i32 {
+        let my_play: Play = me.into();
+        let outcome = outcome(opp, my_play);
+        let outcome_value = outcome as i32;
 
-fn parse_round(line: &str) -> (Opponent, Myself) {
-    let mut fields = line.split(' ');
-    (
-        Opponent::from_str(fields.next().unwrap()).unwrap(),
-        Myself::from_str(fields.next().unwrap()).unwrap(),
-    )
-}
+        let my_choice_value = my_play as i32;
 
-fn main() {
-    part1();    
-}
+        outcome_value + my_choice_value
+    }
 
-fn part1() {
-    let mut input = String::new();
-    File::open("input1.txt").expect("file").read_to_string(&mut input).expect("read");
-    
-    let rounds = input.lines().map(|round| {
-        let (opp,me) = parse_round(round);
-        score_round(opp, me)
-    });
+    fn parse_round(line: &str) -> (Opponent, Myself) {
+        let mut fields = line.split(' ');
+        (
+            Opponent::from_str(fields.next().unwrap()).unwrap(),
+            Myself::from_str(fields.next().unwrap()).unwrap(),
+        )
+    }
 
-    let total:i32 = rounds.sum();
+    pub fn run_part1(input: &str) {
+        let rounds = input.lines().map(|round| {
+            let (opp, me) = parse_round(round);
+            score_round(opp, me)
+        });
 
-    println!("Total score for part 1: {total}");
-}
+        let total: i32 = rounds.sum();
 
-#[cfg(test)]
-mod tests {
-    use crate::{parse_round, score_round};
+        println!("Total score for part 1: {total}");
+    }
 
-    const TEST_INPUT: &str = "A Y
+    #[cfg(test)]
+    mod tests {
+        use crate::part1::{parse_round, score_round};
+        const EXPECTED_VALS: [i32; 3] = [8, 1, 6];
+        const TEST_INPUT: &str = "A Y
 B X
 C Z";
 
-    const EXPECTED_VALS: [i32;3] = [8, 1, 6];
+        #[test]
+        fn scores_correct() {
+            let rounds = TEST_INPUT.lines();
 
-    #[test]
-    fn scores_correct() {
-        let rounds = TEST_INPUT.lines();
-
-        for (round, expected) in rounds.zip(EXPECTED_VALS) {
-            let (opp,me) = parse_round(round);
-            let score = score_round(opp, me);
-            assert_eq!(score, expected);
+            for (round, expected) in rounds.zip(EXPECTED_VALS) {
+                let (opp, me) = parse_round(round);
+                let score = score_round(opp, me);
+                assert_eq!(score, expected);
+            }
         }
     }
+}
+
+mod part2 {
+    use std::str::FromStr;
+
+    use crate::{Myself, Opponent, Outcome, Play};
+
+    fn required_play(opp: Opponent, outcome: Outcome) -> Play {
+        let opp_play: Play = opp.into();
+        match (outcome, opp_play) {
+            (Outcome::Lose, Play::R) => Play::S,
+            (Outcome::Lose, Play::P) => Play::R,
+            (Outcome::Lose, Play::S) => Play::P,
+            (Outcome::Draw, Play::R) => Play::R,
+            (Outcome::Draw, Play::P) => Play::P,
+            (Outcome::Draw, Play::S) => Play::S,
+            (Outcome::Win, Play::R) => Play::P,
+            (Outcome::Win, Play::P) => Play::S,
+            (Outcome::Win, Play::S) => Play::R,
+        }
+    }
+
+    fn score_round(opp: Opponent, me: Myself) -> i32 {
+        let outcome: Outcome = me.into();
+        let my_play = required_play(opp, outcome);
+
+        let outcome_value = outcome as i32;
+        let my_choice_value = my_play as i32;
+        outcome_value + my_choice_value
+    }
+
+    fn parse_round(line: &str) -> (Opponent, Myself) {
+        let mut fields = line.split(' ');
+        (
+            Opponent::from_str(fields.next().unwrap()).unwrap(),
+            Myself::from_str(fields.next().unwrap()).unwrap(),
+        )
+    }
+
+    pub fn run_part2(input: &str) {
+        let rounds = input.lines().map(|round| {
+            let (opp, me) = parse_round(round);
+            score_round(opp, me)
+        });
+
+        let total: i32 = rounds.sum();
+
+        println!("Total score for part 1: {total}");
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use crate::part2::{parse_round, score_round};
+        const EXPECTED_VALS: [i32; 3] = [4, 1, 7];
+        const TEST_INPUT: &str = "A Y
+B X
+C Z";
+
+        #[test]
+        fn scores_correct() {
+            let rounds = TEST_INPUT.lines();
+
+            for (round, expected) in rounds.zip(EXPECTED_VALS) {
+                let (opp, me) = parse_round(round);
+                let score = score_round(opp, me);
+                assert_eq!(score, expected);
+            }
+        }
+    }
+}
+
+fn main() {
+    let mut input = String::new();
+    File::open("input1.txt")
+        .expect("file")
+        .read_to_string(&mut input)
+        .expect("read");
+
+    part1::run_part1(&input);
+    part2::run_part2(&input);
 }
