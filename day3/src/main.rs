@@ -56,11 +56,23 @@ fn first_common_item(comp1: &[Item], comp2: &[Item]) -> Option<Item> {
     None
 }
 
-fn single_common_item_general<'a, I>(groups: I) -> Option<Item>
+/// Find a single common item in the supplied groups.
+///
+/// For those following along
+/// - this method is generic over both the Iterator `I` and the type returned by the iterator `A`.
+/// - `A` in turn implements `AsRef<[Item]>`, which means that it can be converted into a slice
+///   `&[Item]`
+/// - this means that the caller does not need to convert something like a `Vec` to a slice before calling,
+///   since `Vec` implements `AsRef<[T]>`
+///
+/// Implementation details: we collect the items in each rucksack into a corresponding `HashSet`, and
+/// then reduce the sets by intersection. Finally, we check that we have a unique item and return this.
+fn single_common_item_general<'a, I, A>(groups: I) -> Option<Item>
 where
-    I: Iterator<Item = &'a [Item]>,
+    I: Iterator<Item = &'a A>,
+    A: AsRef<[Item]> + 'a + ?Sized,
 {
-    let mut sets_iter = groups.map(|grp| grp.iter().copied().collect::<HashSet<Item>>());
+    let mut sets_iter = groups.map(|grp| grp.as_ref().iter().copied().collect::<HashSet<Item>>());
 
     let first = sets_iter.next()?;
     let common = sets_iter.fold(first, |acc, i| {
@@ -102,7 +114,7 @@ fn part2(input: &str) -> anyhow::Result<i32> {
         let rucksacks: Result<Vec<_>, _> = group.iter().map(|line| parse_items(line)).collect();
         let rucksacks = rucksacks?;
 
-        let common = single_common_item_general(rucksacks.iter().map(|v| v.as_slice()))
+        let common = single_common_item_general(rucksacks.iter())
             .ok_or_else(|| anyhow!("no common item found"))?;
 
         sum += common.priority();
@@ -169,7 +181,7 @@ mod tests {
         let first_group = TEST_INPUT.lines().take(3);
 
         let rucksacks: Vec<_> = first_group.map(|l| parse_items(l).unwrap()).collect();
-        let common_item = single_common_item_general(rucksacks.iter().map(|v| v.as_slice()));
+        let common_item = single_common_item_general(rucksacks.iter());
 
         assert_eq!(common_item, Some(Item::try_from('r').unwrap()))
     }
