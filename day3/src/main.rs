@@ -56,13 +56,11 @@ fn first_common_item(comp1: &[Item], comp2: &[Item]) -> Option<Item> {
     None
 }
 
-fn single_common_item_general(groups: &[&[Item]]) -> Option<Item> {
-    let sets: Vec<HashSet<Item>> = groups
-        .iter()
-        .map(|grp| grp.iter().copied().collect())
-        .collect();
-
-    let mut sets_iter = sets.into_iter();
+fn single_common_item_general<'a, I>(groups: I) -> Option<Item>
+where
+    I: Iterator<Item = &'a [Item]>,
+{
+    let mut sets_iter = groups.map(|grp| grp.iter().copied().collect::<HashSet<Item>>());
 
     let first = sets_iter.next()?;
     let common = sets_iter.fold(first, |acc, i| {
@@ -103,10 +101,9 @@ fn part2(input: &str) -> anyhow::Result<i32> {
     for group in lines.chunks_exact(3) {
         let rucksacks: Result<Vec<_>, _> = group.iter().map(|line| parse_items(line)).collect();
         let rucksacks = rucksacks?;
-        let refs: Vec<_> = rucksacks.iter().map(|v| v.as_slice()).collect();
 
-        let common =
-            single_common_item_general(&refs).ok_or_else(|| anyhow!("no common item found"))?;
+        let common = single_common_item_general(rucksacks.iter().map(|v| v.as_slice()))
+            .ok_or_else(|| anyhow!("no common item found"))?;
 
         sum += common.priority();
     }
@@ -172,8 +169,7 @@ mod tests {
         let first_group = TEST_INPUT.lines().take(3);
 
         let rucksacks: Vec<_> = first_group.map(|l| parse_items(l).unwrap()).collect();
-        let refs: Vec<_> = rucksacks.iter().map(|v| v.as_slice()).collect();
-        let common_item = single_common_item_general(&refs);
+        let common_item = single_common_item_general(rucksacks.iter().map(|v| v.as_slice()));
 
         assert_eq!(common_item, Some(Item::try_from('r').unwrap()))
     }
