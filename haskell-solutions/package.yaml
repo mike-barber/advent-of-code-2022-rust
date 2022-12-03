@@ -16,6 +16,7 @@ description:         Advent of Code 2022
 
 dependencies:
 - base >= 4.7 && < 5
+- split
 
 ghc-options:
 - -Wall

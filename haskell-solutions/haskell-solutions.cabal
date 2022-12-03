@@ -21,7 +21,8 @@ source-repository head
 
 library
   exposed-modules:
-      Lib
+      Common
+      Day1
   other-modules:
       Paths_haskell_solutions
   hs-source-dirs:
@@ -29,6 +30,7 @@ library
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   build-depends:
       base >=4.7 && <5
+    , split
   default-language: Haskell2010
 
 executable haskell-solutions-exe
@@ -41,6 +43,7 @@ executable haskell-solutions-exe
   build-depends:
       base >=4.7 && <5
     , haskell-solutions
+    , split
   default-language: Haskell2010
 
 test-suite haskell-solutions-test
@@ -54,4 +57,5 @@ test-suite haskell-solutions-test
   build-depends:
       base >=4.7 && <5
     , haskell-solutions
+    , split
   default-language: Haskell2010
