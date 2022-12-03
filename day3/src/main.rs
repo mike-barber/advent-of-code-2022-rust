@@ -43,7 +43,8 @@ fn parse_items(items_str: &str) -> anyhow::Result<Vec<Item>> {
 }
 
 fn first_common_item(comp1: &[Item], comp2: &[Item]) -> Option<Item> {
-    // just do the dumb linear search for N^2 complexity
+    // just do the dumb linear search for N^2 complexity; these are pretty 
+    // small sets.
     for i1 in comp1.iter().copied() {
         for i2 in comp2.iter().copied() {
             if i1 == i2 {
@@ -72,13 +73,9 @@ where
     I: Iterator<Item = &'a A>,
     A: AsRef<[Item]> + 'a + ?Sized,
 {
-    let mut sets_iter = groups.map(|grp| grp.as_ref().iter().copied().collect::<HashSet<Item>>());
-
-    let first = sets_iter.next()?;
-    let common = sets_iter.fold(first, |acc, i| {
-        let inter = acc.intersection(&i).copied().collect();
-        inter
-    });
+    let common = groups
+        .map(|grp| grp.as_ref().iter().copied().collect::<HashSet<Item>>())
+        .reduce(|acc, item| acc.intersection(&item).copied().collect())?;
 
     if common.len() == 1 {
         common.into_iter().next()
