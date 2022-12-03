@@ -1,7 +1,7 @@
 use anyhow::{anyhow, bail};
-use std::{fs::File, io::Read};
+use std::{collections::HashSet, fs::File, io::Read};
 
-#[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, PartialOrd, Hash)]
 struct Item(char);
 
 impl TryFrom<char> for Item {
@@ -42,7 +42,7 @@ fn parse_items(items_str: &str) -> anyhow::Result<Vec<Item>> {
     items_str.chars().map(Item::try_from).collect()
 }
 
-fn common_item(comp1: &[Item], comp2: &[Item]) -> Option<Item> {
+fn first_common_item(comp1: &[Item], comp2: &[Item]) -> Option<Item> {
     // just do the dumb linear search for N^2 complexity
     for i1 in comp1.iter().copied() {
         for i2 in comp2.iter().copied() {
@@ -56,6 +56,27 @@ fn common_item(comp1: &[Item], comp2: &[Item]) -> Option<Item> {
     None
 }
 
+fn single_common_item_general(groups: &[&[Item]]) -> Option<Item> {
+    let sets: Vec<HashSet<Item>> = groups
+        .iter()
+        .map(|grp| grp.iter().copied().collect())
+        .collect();
+
+    let mut sets_iter = sets.into_iter();
+
+    let first = sets_iter.next()?;
+    let common = sets_iter.fold(first, |acc, i| {
+        let inter = acc.intersection(&i).copied().collect();
+        inter
+    });
+
+    if common.len() == 1 {
+        common.into_iter().next()
+    } else {
+        None
+    }
+}
+
 fn part1(input: &str) -> anyhow::Result<i32> {
     let rucksacks = input.lines();
 
@@ -66,7 +87,7 @@ fn part1(input: &str) -> anyhow::Result<i32> {
         let items1 = parse_items(c1)?;
         let items2 = parse_items(c2)?;
         let found_common =
-            common_item(&items1, &items2).ok_or_else(|| anyhow!("common item not found"))?;
+            first_common_item(&items1, &items2).ok_or_else(|| anyhow!("common item not found"))?;
 
         common_items.push(found_common);
     }
@@ -75,11 +96,30 @@ fn part1(input: &str) -> anyhow::Result<i32> {
     Ok(sum)
 }
 
+fn part2(input: &str) -> anyhow::Result<i32> {
+    let mut sum = 0;
+
+    let lines: Vec<_> = input.lines().collect();
+    for group in lines.chunks_exact(3) {
+        let rucksacks: Result<Vec<_>, _> = group.iter().map(|line| parse_items(line)).collect();
+        let rucksacks = rucksacks?;
+        let refs: Vec<_> = rucksacks.iter().map(|v| v.as_slice()).collect();
+
+        let common =
+            single_common_item_general(&refs).ok_or_else(|| anyhow!("no common item found"))?;
+
+        sum += common.priority();
+    }
+
+    Ok(sum)
+}
+
 fn main() -> anyhow::Result<()> {
     let mut input = String::new();
     File::open("input1.txt")?.read_to_string(&mut input)?;
 
     println!("Part 1 result: {:?}", part1(&input));
+    println!("Part 2 result: {:?}", part2(&input));
 
     Ok(())
 }
@@ -122,14 +162,31 @@ mod tests {
         let comp1 = parse_items(COMPARTMENT1).unwrap();
         let comp2 = parse_items(COMPARTMENT2).unwrap();
 
-        let found_common = common_item(&comp1, &comp2);
+        let found_common = first_common_item(&comp1, &comp2);
         let expected = Some(Item::try_from('p').unwrap());
         assert_eq!(found_common, expected);
+    }
+
+    #[test]
+    fn group_item_correct() {
+        let first_group = TEST_INPUT.lines().take(3);
+
+        let rucksacks: Vec<_> = first_group.map(|l| parse_items(l).unwrap()).collect();
+        let refs: Vec<_> = rucksacks.iter().map(|v| v.as_slice()).collect();
+        let common_item = single_common_item_general(&refs);
+
+        assert_eq!(common_item, Some(Item::try_from('r').unwrap()))
     }
 
     #[test]
     fn part1_correct() {
         let value = part1(TEST_INPUT).unwrap();
         assert_eq!(value, 157);
+    }
+
+    #[test]
+    fn part2_correct() {
+        let value = part2(TEST_INPUT).unwrap();
+        assert_eq!(value, 70);
     }
 }
