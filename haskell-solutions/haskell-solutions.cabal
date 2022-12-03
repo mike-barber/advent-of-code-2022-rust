@@ -1,0 +1,57 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.35.0.
+--
+-- see: https://github.com/sol/hpack
+
+name:           haskell-solutions
+version:        0.1.0.0
+description:    Advent of Code 2022
+homepage:       https://github.com/mike-barber/haskell-solutions#readme
+bug-reports:    https://github.com/mike-barber/haskell-solutions/issues
+author:         mike-barber
+maintainer:     mike-barber
+copyright:      2022 mike-barber
+license:        BSD3
+build-type:     Simple
+
+source-repository head
+  type: git
+  location: https://github.com/mike-barber/haskell-solutions
+
+library
+  exposed-modules:
+      Lib
+  other-modules:
+      Paths_haskell_solutions
+  hs-source-dirs:
+      src
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
+  build-depends:
+      base >=4.7 && <5
+  default-language: Haskell2010
+
+executable haskell-solutions-exe
+  main-is: Main.hs
+  other-modules:
+      Paths_haskell_solutions
+  hs-source-dirs:
+      app
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , haskell-solutions
+  default-language: Haskell2010
+
+test-suite haskell-solutions-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      Paths_haskell_solutions
+  hs-source-dirs:
+      test
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , haskell-solutions
+  default-language: Haskell2010
