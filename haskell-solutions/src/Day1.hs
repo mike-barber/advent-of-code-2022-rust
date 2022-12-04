@@ -28,7 +28,7 @@ part1 = do
     inputLines <- readInput
     let groupSums = map sum $ parseGroups inputLines
     let solution = maximum groupSums
-    putStrLn ("day1 / part1 solution: " ++ show solution)
+    putStrLn ("day1 / part1 = " ++ show solution)
 
 part2 :: IO ()
 part2 = do
@@ -36,6 +36,6 @@ part2 = do
     let groupSums = map sum $ parseGroups inputLines
     let top3 = take 3 $ reverse $ sort groupSums
     let solution = sum top3
-    putStrLn ("day1 / part2 solution: " ++ show solution)
+    putStrLn ("day1 / part2 = " ++ show solution)
 
 
