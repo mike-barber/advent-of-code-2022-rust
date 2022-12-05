@@ -1,7 +1,7 @@
 use regex::Regex;
-use std::{collections::VecDeque, fs::File, io::Read};
+use std::{fs::File, io::Read};
 
-type Stack = VecDeque<char>;
+type Stack = Vec<char>;
 
 #[derive(Debug, Clone)]
 struct Instruction {
@@ -46,7 +46,7 @@ fn parse_stacks(input: &[&str]) -> Vec<Stack> {
         .max()
         .unwrap();
 
-    let mut stacks = vec![VecDeque::new(); num_stacks];
+    let mut stacks = vec![vec![]; num_stacks];
     for l in input.iter().rev().skip(1) {
         let lc: Vec<_> = l.chars().collect();
         #[allow(clippy::needless_range_loop)]
@@ -58,7 +58,7 @@ fn parse_stacks(input: &[&str]) -> Vec<Stack> {
             });
 
             if let Some(c) = ch_maybe {
-                stacks[i].push_back(*c);
+                stacks[i].push(*c);
             }
         }
     }
@@ -85,8 +85,8 @@ fn parse_instructions(input: &[&str]) -> Vec<Instruction> {
 // part 1 - old crane -- move crates one at a time
 fn part1_apply_instruction(stacks: &mut [Stack], instruction: &Instruction) {
     for _ in 0..instruction.count {
-        let c = stacks[instruction.source].pop_back().unwrap();
-        stacks[instruction.dest].push_back(c);
+        let c = stacks[instruction.source].pop().unwrap();
+        stacks[instruction.dest].push(c);
     }
 }
 
@@ -95,7 +95,7 @@ fn part1(input: &str) -> String {
     for inst in instructions.iter() {
         part1_apply_instruction(&mut stacks, inst);
     }
-    stacks.iter().map(|st| st.back().unwrap()).collect()
+    stacks.iter().map(|st| st.last().unwrap()).collect()
 }
 
 // part 2 - new crane -- move stack of crates all at once, so the order
@@ -103,12 +103,12 @@ fn part1(input: &str) -> String {
 fn part2_apply_instruction(stacks: &mut [Stack], instruction: &Instruction) {
     let mut collected = vec![];
     for _ in 0..instruction.count {
-        let c = stacks[instruction.source].pop_back().unwrap();
+        let c = stacks[instruction.source].pop().unwrap();
         collected.push(c);
     }
 
     for c in collected.iter().rev() {
-        stacks[instruction.dest].push_back(*c);
+        stacks[instruction.dest].push(*c);
     }
 }
 
@@ -117,7 +117,7 @@ fn part2(input: &str) -> String {
     for inst in instructions.iter() {
         part2_apply_instruction(&mut stacks, inst);
     }
-    stacks.iter().map(|st| st.back().unwrap()).collect()
+    stacks.iter().map(|st| st.last().unwrap()).collect()
 }
 
 fn main() {
