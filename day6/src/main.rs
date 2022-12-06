@@ -10,12 +10,12 @@ fn read_file(file_name: &str) -> String {
 }
 
 fn all_different(characters: &[char]) -> bool {
-    for i in 0..(characters.len() - 1) {
-        for j in (i + 1)..characters.len() {
-            if characters[i] == characters[j] {
-                return false;
-            }
+    let mut chr = characters;
+    while let Some((ch, remainder)) = chr.split_first() {
+        if remainder.iter().any(|r| r == ch) {
+            return false;
         }
+        chr = remainder;
     }
     true
 }
