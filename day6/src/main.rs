@@ -11,7 +11,7 @@ fn read_file(file_name: &str) -> String {
 
 fn all_different(characters: &[char]) -> bool {
     for i in 0..(characters.len() - 1) {
-        for j in (i+1)..characters.len() {
+        for j in (i + 1)..characters.len() {
             if characters[i] == characters[j] {
                 return false;
             }
@@ -22,7 +22,11 @@ fn all_different(characters: &[char]) -> bool {
 
 fn find_marker(line: &str, window_size: usize) -> usize {
     let chars: Vec<_> = line.chars().collect();
-    let (idx, _) = chars.windows(window_size).enumerate().find(|(_, w)| all_different(w)).unwrap();
+    let (idx, _) = chars
+        .windows(window_size)
+        .enumerate()
+        .find(|(_, w)| all_different(w))
+        .expect("pattern not found");
     idx + window_size
 }
 
@@ -54,13 +58,11 @@ mod tests {
         assert_eq!(part1("bvwbjplbgvbhsrlpgdmjqwftvncz"), 5);
         assert_eq!(part1("nppdvjthqldpwncqszvftbrmjlhg"), 6);
     }
-    
+
     #[test]
     fn part2_examples_correct() {
         assert_eq!(part2("mjqjpqmgbljsphdztnvjfqwrcgsmlb"), 19);
         assert_eq!(part2("bvwbjplbgvbhsrlpgdmjqwftvncz"), 23);
         assert_eq!(part2("nppdvjthqldpwncqszvftbrmjlhg"), 23);
     }
-
-    
 }
