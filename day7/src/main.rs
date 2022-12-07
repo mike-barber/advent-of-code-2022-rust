@@ -1,4 +1,4 @@
-use std::{fs::File, io::Read};
+use std::{fs::File, io::Read, iter};
 
 use regex::Regex;
 
@@ -112,7 +112,6 @@ fn explore_dir(terminal_iter: &mut impl Iterator<Item = Term>, dir_name: String)
 }
 
 fn part1(inputs: impl Iterator<Item = Term>) -> usize {
-    //let mut directory_sizes : Vec<(String, usize)> = Vec::new();
     let mut input_iter = inputs.into_iter();
     assert_eq!(input_iter.next(), Some(CdRoot));
 
@@ -133,12 +132,56 @@ fn part1(inputs: impl Iterator<Item = Term>) -> usize {
     add_sizes_under_at_most(&root_dir, 100_000)
 }
 
+fn part2(inputs: impl Iterator<Item = Term>) -> usize {
+    let mut input_iter = inputs.into_iter();
+    assert_eq!(input_iter.next(), Some(CdRoot));
+
+    let root_dir = explore_dir(&mut input_iter, "/".into());
+
+    let required_free_space = 30000000;
+    let current_free_space = 70000000 - root_dir.size_inclusive();
+    let minimum_amount_to_free = required_free_space - current_free_space;
+    //let minimum_amount_to_free = 10;
+    dbg!(minimum_amount_to_free);
+
+    fn min_size_larger_than(dir: &Dir, minimum_amount_to_free: usize) -> Option<usize> {
+        let min_size = dir.sub_dirs.iter()
+            .filter_map(|sd| min_size_larger_than(sd, minimum_amount_to_free))
+            .min();
+    
+        let own_size = dir.size_inclusive();
+        let own_acceptable = if own_size >= minimum_amount_to_free {
+            Some(own_size)
+        } else {
+            None
+        };
+
+        dbg!(min_size);
+        dbg!(own_size);
+
+        let res = match (min_size, own_acceptable) {
+            (None, None) => None,
+            (None, Some(y)) => Some(y),
+            (Some(x), None) => Some(x),
+            (Some(x), Some(y)) => Some(x.min(y)),
+        };
+
+        dbg!(res);
+        res
+    }
+
+    min_size_larger_than(&root_dir, minimum_amount_to_free).unwrap()
+}
+
 fn main() {
     let entries = parse_input(&read_file("input.txt"));
     //println!("{entries:#?}");
 
     let part1_res = part1(entries.iter().cloned());
     println!("part 1 result = {part1_res}");
+
+    let part2_res = part2(entries.iter().cloned());
+    println!("part 2 result = {part2_res}");
 }
 
 #[cfg(test)]
@@ -181,5 +224,11 @@ mod tests {
     fn part1_correct() {
         let inputs = parse_input(TEST_INPUT);
         assert_eq!(part1(inputs.into_iter()), 95437);
+    }
+
+    #[test]
+    fn part2_correct() {
+        let inputs = parse_input(TEST_INPUT);
+        assert_eq!(part2(inputs.into_iter()), 24933642);
     }
 }
