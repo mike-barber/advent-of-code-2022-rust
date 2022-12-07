@@ -1,11 +1,9 @@
-use std::{fs::File, io::Read, iter};
-
 use regex::Regex;
-
-use Term::*;
+use std::{fs::File, io::Read, iter};
+use Terminal::*;
 
 #[derive(Debug, Clone, PartialEq)]
-enum Term {
+enum Terminal {
     CdRoot,
     CdUp,
     CdInto(String),
@@ -49,10 +47,6 @@ impl Dir {
         let self_size: usize = self.files.iter().map(|f| f.1).sum();
         sub_dir_size + self_size
     }
-
-    // fn size_self(&self) -> usize {
-    //     self.files.iter().map(|f| f.1).sum()
-    // }
 }
 
 fn read_file(file_name: &str) -> String {
@@ -64,7 +58,7 @@ fn read_file(file_name: &str) -> String {
     contents
 }
 
-fn parse_input(input: &str) -> Vec<Term> {
+fn parse_input(input: &str) -> Vec<Terminal> {
     let re_cd = Regex::new(r#"\$ cd (/|\.\.|\w+)"#).unwrap();
     let re_ls = Regex::new(r#"\$ ls"#).unwrap();
     let re_dir = Regex::new(r#"dir (\w+)"#).unwrap();
@@ -83,9 +77,9 @@ fn parse_input(input: &str) -> Vec<Term> {
             } else if re_ls.is_match(line) {
                 Ls
             } else if let Some(caps) = re_dir.captures(line) {
-                Term::Entry(Entry::Dir(caps[1].into()))
+                Terminal::Entry(Entry::Dir(caps[1].into()))
             } else if let Some(caps) = re_file.captures(line) {
-                Term::Entry(Entry::File(caps[2].into(), caps[1].parse().unwrap()))
+                Terminal::Entry(Entry::File(caps[2].into(), caps[1].parse().unwrap()))
             } else {
                 panic!("cannot parse: {line}")
             }
@@ -93,7 +87,7 @@ fn parse_input(input: &str) -> Vec<Term> {
         .collect()
 }
 
-fn explore_dir(terminal_iter: &mut impl Iterator<Item = Term>, dir_name: String) -> Dir {
+fn explore_dir(terminal_iter: &mut impl Iterator<Item = Terminal>, dir_name: String) -> Dir {
     let mut dir = Dir::new(dir_name);
     while let Some(term) = terminal_iter.next() {
         match term {
@@ -103,71 +97,58 @@ fn explore_dir(terminal_iter: &mut impl Iterator<Item = Term>, dir_name: String)
                 dir.push_dir(sub_dir);
             }
             Ls => {}
-            Term::Entry(Entry::File(name, size)) => dir.push_file(name, size),
-            Term::Entry(Entry::Dir(_)) => {}
+            Terminal::Entry(Entry::File(name, size)) => dir.push_file(name, size),
+            Terminal::Entry(Entry::Dir(_)) => {}
             CdRoot => panic!("cd to root not supported"),
         }
     }
     dir
 }
 
-fn part1(inputs: impl Iterator<Item = Term>) -> usize {
-    let mut input_iter = inputs.into_iter();
+fn part1(mut input_iter: impl Iterator<Item = Terminal>) -> usize {
     assert_eq!(input_iter.next(), Some(CdRoot));
-
     let root_dir = explore_dir(&mut input_iter, "/".into());
 
     fn add_sizes_under_at_most(dir: &Dir, max_size: usize) -> usize {
-        let mut acc = 0;
-        let size = dir.size_inclusive();
-        if size <= max_size {
-            acc += size;
+        let mut total = dir
+            .sub_dirs
+            .iter()
+            .map(|sub| add_sizes_under_at_most(sub, max_size))
+            .sum::<usize>();
+
+        let own_size = dir.size_inclusive();
+        if own_size <= max_size {
+            total += own_size;
         }
-        for sub in dir.sub_dirs.iter() {
-            acc += add_sizes_under_at_most(sub, max_size);
-        }
-        acc
+
+        total
     }
 
     add_sizes_under_at_most(&root_dir, 100_000)
 }
 
-fn part2(inputs: impl Iterator<Item = Term>) -> usize {
-    let mut input_iter = inputs.into_iter();
+fn part2(mut input_iter: impl Iterator<Item = Terminal>) -> usize {
     assert_eq!(input_iter.next(), Some(CdRoot));
-
     let root_dir = explore_dir(&mut input_iter, "/".into());
 
     let required_free_space = 30000000;
     let current_free_space = 70000000 - root_dir.size_inclusive();
     let minimum_amount_to_free = required_free_space - current_free_space;
-    //let minimum_amount_to_free = 10;
-    dbg!(minimum_amount_to_free);
 
     fn min_size_larger_than(dir: &Dir, minimum_amount_to_free: usize) -> Option<usize> {
-        let min_size = dir.sub_dirs.iter()
-            .filter_map(|sd| min_size_larger_than(sd, minimum_amount_to_free))
+        // collect size for this directory
+        let own_size = Some(dir.size_inclusive()).filter(|s| *s >= minimum_amount_to_free);
+
+        // consider other directories, and return the minimum acceptable size (if any)
+        let min_size = dir
+            .sub_dirs
+            .iter()
+            .map(|sd| min_size_larger_than(sd, minimum_amount_to_free))
+            .chain(iter::once(own_size))
+            .flatten()
             .min();
-    
-        let own_size = dir.size_inclusive();
-        let own_acceptable = if own_size >= minimum_amount_to_free {
-            Some(own_size)
-        } else {
-            None
-        };
 
-        dbg!(min_size);
-        dbg!(own_size);
-
-        let res = match (min_size, own_acceptable) {
-            (None, None) => None,
-            (None, Some(y)) => Some(y),
-            (Some(x), None) => Some(x),
-            (Some(x), Some(y)) => Some(x.min(y)),
-        };
-
-        dbg!(res);
-        res
+        min_size
     }
 
     min_size_larger_than(&root_dir, minimum_amount_to_free).unwrap()
@@ -175,7 +156,6 @@ fn part2(inputs: impl Iterator<Item = Term>) -> usize {
 
 fn main() {
     let entries = parse_input(&read_file("input.txt"));
-    //println!("{entries:#?}");
 
     let part1_res = part1(entries.iter().cloned());
     println!("part 1 result = {part1_res}");
