@@ -38,6 +38,17 @@ impl Dir {
     fn push_file(&mut self, name: String, size: usize) {
         self.files.push((name, size));
     }
+
+    fn push_dir(&mut self, dir: Dir) -> &mut Dir {
+        self.sub_dirs.push(dir);
+        self.sub_dirs.last_mut().unwrap()
+    }
+
+    fn size(&self) -> usize {
+        let sub_dir_size: usize = self.sub_dirs.iter().map(|s| s.size()).sum();
+        let self_size: usize = self.files.iter().map(|f| f.1).sum();
+        sub_dir_size + self_size
+    }
 }
 
 
@@ -76,42 +87,36 @@ fn parse_input(input: &str) -> Vec<Term> {
     }).collect()
 }
 
-fn part1(inputs: &[Term]) -> usize {
+
+fn explore_dir(terminal_iter: &mut impl Iterator<Item = Term>, dir_name: String) -> Dir {
+    let mut dir = Dir::new(dir_name);
+    while let Some(term) = terminal_iter.next() {
+        match term {
+            CdUp => return dir,
+            CdInto(d) => {
+                let sub_dir = explore_dir(terminal_iter, d);
+                dir.push_dir(sub_dir);
+            },
+            Ls => {},
+            Term::Entry(Entry::File(name, size)) => dir.push_file(name, size),
+            Term::Entry(Entry::Dir(_)) => {},
+            CdRoot => panic!("cd to root not supported"),
+        }
+    }
+    dir
+}
+
+
+fn part1(inputs: impl Iterator<Item = Term>) -> usize {
     //let mut directory_sizes : Vec<(String, usize)> = Vec::new();
     let mut input_iter = inputs.into_iter();
-    assert_eq!(input_iter.next(), Some(&CdRoot));
+    assert_eq!(input_iter.next(), Some(CdRoot));
 
-    let mut current_path :Vec<Dir> = Vec::new();
-    current_path.push(Dir::new("/".into()));
+    let root_node = explore_dir(&mut input_iter, "/".into());
 
-    while let Some(entry) = input_iter.next() {
-        // list files
-        if entry == &Ls {
-            while let Some(Term::Entry(entry)) = input_iter.next() {
-                if let Entry::File(name, size) = entry {
-                    current_path.last_mut().unwrap().push_file(name.clone(), *size);
-                }
-            }
-        }
+    println!("{:#?}", root_node);
 
-        // change into sub directory
-        if let CdInto(name) = entry {
-            
-            current_path.push(Dir::new(name.clone()));
-        }
-
-        if let CdUp = entry {
-
-        }
-        
-
-
-
-    }
-
-
-
-    todo!()
+    0
 }
 
 
@@ -161,7 +166,7 @@ mod tests {
     #[test]
     fn part1_correct() {
         let inputs = parse_input(TEST_INPUT);
-        assert_eq!(part1(&inputs), 95437);
+        assert_eq!(part1(inputs.into_iter()), 95437);
     }
 
 
