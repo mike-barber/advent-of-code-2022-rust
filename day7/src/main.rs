@@ -1,4 +1,4 @@
-use std::{fs::File, io::Read, env::current_exe};
+use std::{fs::File, io::Read};
 
 use regex::Regex;
 
@@ -23,7 +23,7 @@ enum Entry {
 struct Dir {
     name: String,
     files: Vec<(String, usize)>,
-    sub_dirs: Vec<Dir>
+    sub_dirs: Vec<Dir>,
 }
 
 impl Dir {
@@ -44,13 +44,16 @@ impl Dir {
         self.sub_dirs.last_mut().unwrap()
     }
 
-    fn size(&self) -> usize {
-        let sub_dir_size: usize = self.sub_dirs.iter().map(|s| s.size()).sum();
+    fn size_inclusive(&self) -> usize {
+        let sub_dir_size: usize = self.sub_dirs.iter().map(|s| s.size_inclusive()).sum();
         let self_size: usize = self.files.iter().map(|f| f.1).sum();
         sub_dir_size + self_size
     }
-}
 
+    // fn size_self(&self) -> usize {
+    //     self.files.iter().map(|f| f.1).sum()
+    // }
+}
 
 fn read_file(file_name: &str) -> String {
     let mut contents = String::new();
@@ -66,27 +69,29 @@ fn parse_input(input: &str) -> Vec<Term> {
     let re_ls = Regex::new(r#"\$ ls"#).unwrap();
     let re_dir = Regex::new(r#"dir (\w+)"#).unwrap();
     let re_file = Regex::new(r#"(\d+) (\w+)"#).unwrap();
-       
-    input.lines().map(|line| {
-        if let Some(caps) = re_cd.captures(line) {
-            let arg = &caps[1];
-            match arg {
-                "/" => CdRoot,
-                ".." => CdUp,
-                s => CdInto(s.into())
-            }
-        } else if re_ls.is_match(line) {
-            Ls
-        } else if let Some(caps) = re_dir.captures(line) {
-            Term::Entry(Entry::Dir(caps[1].into()))
-        } else if let Some(caps) = re_file.captures(line) {
-            Term::Entry(Entry::File(caps[2].into(), caps[1].parse().unwrap()))
-        } else {
-            panic!("cannot parse: {line}")
-        }
-    }).collect()
-}
 
+    input
+        .lines()
+        .map(|line| {
+            if let Some(caps) = re_cd.captures(line) {
+                let arg = &caps[1];
+                match arg {
+                    "/" => CdRoot,
+                    ".." => CdUp,
+                    s => CdInto(s.into()),
+                }
+            } else if re_ls.is_match(line) {
+                Ls
+            } else if let Some(caps) = re_dir.captures(line) {
+                Term::Entry(Entry::Dir(caps[1].into()))
+            } else if let Some(caps) = re_file.captures(line) {
+                Term::Entry(Entry::File(caps[2].into(), caps[1].parse().unwrap()))
+            } else {
+                panic!("cannot parse: {line}")
+            }
+        })
+        .collect()
+}
 
 fn explore_dir(terminal_iter: &mut impl Iterator<Item = Term>, dir_name: String) -> Dir {
     let mut dir = Dir::new(dir_name);
@@ -96,41 +101,50 @@ fn explore_dir(terminal_iter: &mut impl Iterator<Item = Term>, dir_name: String)
             CdInto(d) => {
                 let sub_dir = explore_dir(terminal_iter, d);
                 dir.push_dir(sub_dir);
-            },
-            Ls => {},
+            }
+            Ls => {}
             Term::Entry(Entry::File(name, size)) => dir.push_file(name, size),
-            Term::Entry(Entry::Dir(_)) => {},
+            Term::Entry(Entry::Dir(_)) => {}
             CdRoot => panic!("cd to root not supported"),
         }
     }
     dir
 }
 
-
 fn part1(inputs: impl Iterator<Item = Term>) -> usize {
     //let mut directory_sizes : Vec<(String, usize)> = Vec::new();
     let mut input_iter = inputs.into_iter();
     assert_eq!(input_iter.next(), Some(CdRoot));
 
-    let root_node = explore_dir(&mut input_iter, "/".into());
+    let root_dir = explore_dir(&mut input_iter, "/".into());
 
-    println!("{:#?}", root_node);
+    fn add_sizes_under_at_most(dir: &Dir, max_size: usize) -> usize {
+        let mut acc = 0;
+        let size = dir.size_inclusive();
+        if size <= max_size {
+            acc += size;
+        }
+        for sub in dir.sub_dirs.iter() {
+            acc += add_sizes_under_at_most(sub, max_size);
+        }
+        acc
+    }
 
-    0
+    add_sizes_under_at_most(&root_dir, 100_000)
 }
-
-
 
 fn main() {
     let entries = parse_input(&read_file("input.txt"));
-    println!("{entries:#?}");
-}
+    //println!("{entries:#?}");
 
+    let part1_res = part1(entries.iter().cloned());
+    println!("part 1 result = {part1_res}");
+}
 
 #[cfg(test)]
 mod tests {
-    use indoc::indoc;
     use crate::*;
+    use indoc::indoc;
 
     const TEST_INPUT: &str = indoc! {"
     $ cd /
@@ -168,6 +182,4 @@ mod tests {
         let inputs = parse_input(TEST_INPUT);
         assert_eq!(part1(inputs.into_iter()), 95437);
     }
-
-
 }
