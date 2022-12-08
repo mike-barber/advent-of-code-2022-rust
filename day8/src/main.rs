@@ -58,17 +58,13 @@ impl Grid {
 
     fn scan_visible_distance(&self, mut x: isize, mut y: isize, dx: isize, dy: isize) -> usize {
         let own_height = self.get(x, y).expect("not on grid");
-        let mut highest_seen = 0;
-        let mut visible_distance = 0;
+        let mut distance = 0;
         loop {
             x += dx;
             y += dy;
-
+            
             if let Some(h) = self.get(x, y) {
-                if h >= highest_seen {
-                    highest_seen = h;
-                    visible_distance += 1;
-                }
+                distance += 1;
                 if h >= own_height {
                     break;
                 }
@@ -76,7 +72,7 @@ impl Grid {
                 break;
             }
         }
-        visible_distance
+        distance
     }
 }
 impl TryFrom<&[&str]> for Grid {
