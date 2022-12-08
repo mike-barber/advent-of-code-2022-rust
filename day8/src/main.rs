@@ -62,7 +62,7 @@ impl Grid {
         loop {
             x += dx;
             y += dy;
-            
+
             if let Some(h) = self.get(x, y) {
                 distance += 1;
                 if h >= own_height {
@@ -75,6 +75,7 @@ impl Grid {
         distance
     }
 }
+
 impl TryFrom<&[&str]> for Grid {
     type Error = anyhow::Error;
 

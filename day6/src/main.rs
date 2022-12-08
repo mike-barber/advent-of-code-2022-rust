@@ -10,7 +10,7 @@ fn read_file(file_name: &str) -> String {
 }
 
 // This is quite inefficient: O(N^2) on the size
-// of the slice. The problem is so small that a 
+// of the slice. The problem is so small that a
 // more complex algorithm won't yield any benefit.
 fn all_different(characters: &[char]) -> bool {
     let mut chr = characters;

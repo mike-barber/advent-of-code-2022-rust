@@ -43,7 +43,7 @@ fn parse_items(items_str: &str) -> anyhow::Result<Vec<Item>> {
 }
 
 fn first_common_item(comp1: &[Item], comp2: &[Item]) -> Option<Item> {
-    // just do the dumb linear search for N^2 complexity; these are pretty 
+    // just do the dumb linear search for N^2 complexity; these are pretty
     // small sets.
     for i1 in comp1.iter().copied() {
         for i2 in comp2.iter().copied() {
