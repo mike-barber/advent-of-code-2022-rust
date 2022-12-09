@@ -1,6 +1,7 @@
 use anyhow::anyhow;
 use std::{
     collections::HashSet,
+    default,
     fs::File,
     hash::Hash,
     io::Read,
@@ -63,12 +64,12 @@ impl TryFrom<&str> for Instruction {
 }
 
 #[derive(Debug, Clone, Default)]
-struct Rope {
+struct RopeSegment {
     head: Point,
     tail: Point,
 }
-impl Rope {
-    fn move_dir(self, dir: Dir) -> Rope {
+impl RopeSegment {
+    fn move_dir(self, dir: Dir) -> RopeSegment {
         // new head position
         let new_head = self.head + dir.into();
 
@@ -89,16 +90,35 @@ impl Rope {
         //     tt = self.tail
         // );
 
-        Rope {
+        RopeSegment {
             head: new_head,
             tail: new_tail,
         }
     }
 }
 
+#[derive(Debug, Clone)]
+struct Rope(Vec<RopeSegment>);
+impl Rope {
+    fn new(len: usize) -> Self {
+        Rope(vec![RopeSegment::default(); len])
+    }
+
+    fn move_dir(self, dir: Dir) -> Rope {
+        let mut d = dir;
+        let mut segments = self.0;
+        for seg in &mut segments {
+            let prior = *seg.tail;
+            seg.move_dir(dir)
+        }
+
+        todo!()
+    }
+}
+
 fn part1(instructions: &[Instruction]) -> usize {
     let mut history = HashSet::new();
-    let mut rope = Rope::default();
+    let mut rope = RopeSegment::default();
 
     history.insert(rope.tail);
     for instruction in instructions {
