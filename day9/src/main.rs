@@ -1,7 +1,6 @@
 use anyhow::anyhow;
 use std::{
     collections::HashSet,
-    default,
     fs::File,
     hash::Hash,
     io::Read,
@@ -11,7 +10,6 @@ use strum::EnumString;
 
 #[derive(Debug, Clone, Copy, Default, Hash, Eq, PartialEq)]
 struct Point(i32, i32);
-
 impl Add for Point {
     type Output = Point;
 
@@ -53,8 +51,8 @@ impl TryFrom<&str> for Instruction {
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         let mut fields = value.split_whitespace();
 
-        let dir_field = fields.next().ok_or(anyhow!("missing dir"))?;
-        let repeat_field = fields.next().ok_or(anyhow!("missing count"))?;
+        let dir_field = fields.next().ok_or_else(|| anyhow!("missing dir"))?;
+        let repeat_field = fields.next().ok_or_else(|| anyhow!("missing count"))?;
 
         let dir: Dir = dir_field.try_into()?;
         let repeat: usize = repeat_field.parse()?;
@@ -63,72 +61,66 @@ impl TryFrom<&str> for Instruction {
     }
 }
 
-#[derive(Debug, Clone, Default)]
-struct RopeSegment {
-    head: Point,
-    tail: Point,
-}
-impl RopeSegment {
-    fn move_dir(self, dir: Dir) -> RopeSegment {
-        // new head position
-        let new_head = self.head + dir.into();
+#[derive(Debug, Clone)]
+struct Rope(Vec<Point>);
+impl Rope {
+    fn new(length: usize) -> Self {
+        Rope(vec![Point::default(); length])
+    }
 
-        // new tail position
-        let distance = new_head - self.tail;
-        let new_tail = match distance {
-            Point(-1..=1, -1..=1) => self.tail,
-            Point(x, 0) => new_head - Point(x.signum(), 0),
-            Point(0, y) => new_head - Point(0, y.signum()),
+    fn follow(leading: Point, current: Point) -> Point {
+        let distance = leading - current;
+        match distance {
+            Point(-1..=1, -1..=1) => current,
+            Point(x, 0) => leading - Point(x.signum(), 0),
+            Point(0, y) => leading - Point(0, y.signum()),
             Point(x, y) => {
                 let mv = Point(x.signum(), y.signum());
-                self.tail + mv
+                current + mv
             }
-        };
-
-        // println!(
-        //     "head {new_head:?} {new_tail:?} -- distance {distance:?} tail {tt:?} -> {new_tail:?}",
-        //     tt = self.tail
-        // );
-
-        RopeSegment {
-            head: new_head,
-            tail: new_tail,
         }
-    }
-}
-
-#[derive(Debug, Clone)]
-struct Rope(Vec<RopeSegment>);
-impl Rope {
-    fn new(len: usize) -> Self {
-        Rope(vec![RopeSegment::default(); len])
     }
 
     fn move_dir(self, dir: Dir) -> Rope {
-        let mut d = dir;
-        let mut segments = self.0;
-        for seg in &mut segments {
-            let prior = *seg.tail;
-            seg.move_dir(dir)
+        let mut points = self.0;
+
+        // update head
+        points[0] = points[0] + dir.into();
+
+        // rest of the points follow the changes
+        for i in 1..points.len() {
+            points[i] = Self::follow(points[i - 1], points[i]);
         }
 
-        todo!()
+        // updated rope
+        Rope(points)
+    }
+
+    fn tail(&self) -> Point {
+        *self.0.last().unwrap()
     }
 }
 
-fn part1(instructions: &[Instruction]) -> usize {
+fn tail_position_count(instructions: &[Instruction], rope_length: usize) -> usize {
     let mut history = HashSet::new();
-    let mut rope = RopeSegment::default();
+    let mut rope = Rope::new(rope_length);
 
-    history.insert(rope.tail);
+    history.insert(rope.tail());
     for instruction in instructions {
         for _ in 0..instruction.1 {
             rope = rope.move_dir(instruction.0);
-            history.insert(rope.tail);
+            history.insert(rope.tail());
         }
     }
-
     history.len()
+}
+
+fn part1(instructions: &[Instruction]) -> usize {
+    tail_position_count(instructions, 2)
+}
+
+fn part2(instructions: &[Instruction]) -> usize {
+    tail_position_count(instructions, 10)
 }
 
 fn read_file(file_name: &str) -> String {
@@ -150,8 +142,8 @@ fn main() -> anyhow::Result<()> {
     let part1_res = part1(&instructions);
     println!("part 1 result = {part1_res}");
 
-    // let part2_res = part2(&grid);
-    // println!("part 2 result = {part2_res}");
+    let part2_res = part2(&instructions);
+    println!("part 2 result = {part2_res}");
 
     Ok(())
 }
@@ -161,7 +153,7 @@ mod tests {
     use crate::*;
     use indoc::indoc;
 
-    const TEST_INPUT: &str = indoc! {"
+    const TEST_INPUT_PART1: &str = indoc! {"
         R 4
         U 4
         L 3
@@ -172,29 +164,33 @@ mod tests {
         R 2
     "};
 
+    const TEST_INPUT_PART2: &str = indoc! {"
+        R 5
+        U 8
+        L 8
+        D 3
+        R 17
+        D 10
+        L 25
+        U 20
+    "};
+
     #[test]
     fn parse_inputs_succeeds() {
-        parse_input(TEST_INPUT).unwrap();
+        parse_input(TEST_INPUT_PART1).unwrap();
     }
 
     #[test]
     fn part1_correct() {
-        let instructions = parse_input(TEST_INPUT).unwrap();
+        let instructions = parse_input(TEST_INPUT_PART1).unwrap();
         let res = part1(&instructions);
         assert_eq!(res, 13);
     }
 
-    // #[test]
-    // fn scenic_score_correct() {
-    //     let grid = parse_input(TEST_INPUT).unwrap();
-    //     assert_eq!(grid.scenic_score_from_tree(2, 1), 4);
-    //     assert_eq!(grid.scenic_score_from_tree(2, 3), 8);
-    // }
-
-    // #[test]
-    // fn part2_correct() {
-    //     let grid = parse_input(TEST_INPUT).unwrap();
-    //     let res = part2(&grid);
-    //     assert_eq!(res, 8);
-    // }
+    #[test]
+    fn part2_correct() {
+        let instructions = parse_input(TEST_INPUT_PART2).unwrap();
+        let res = part2(&instructions);
+        assert_eq!(res, 36);
+    }
 }
