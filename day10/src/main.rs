@@ -1,8 +1,5 @@
 use anyhow::{anyhow, bail};
-use std::{
-    fs::File,
-    io::Read,
-};
+use std::{fs::File, io::Read};
 use strum::EnumString;
 
 #[derive(Debug, Clone, Copy, EnumString)]
@@ -33,32 +30,25 @@ impl Default for Machine {
     }
 }
 
-fn execute<F: Fn(u64) -> bool>(
+fn execute(
     init: Machine,
     instructions: &[Instruction],
-    clock_observe: F,
 ) -> Vec<Machine> {
     let mut machine = init;
     let mut observations = vec![];
-    if clock_observe(machine.clock) {
-        observations.push(machine);
-    }
+    observations.push(machine);
     for instruction in instructions {
         let cycles = instruction.cycles();
-        for _ in 0..cycles-1 {
+        for _ in 0..cycles - 1 {
             machine.clock += 1;
-            if clock_observe(machine.clock) {
-                observations.push(machine);
-            }
+            observations.push(machine);
         }
         match instruction {
             Instruction::Add(x) => machine.register += x,
             Instruction::NoOp => {}
         }
         machine.clock += 1;
-        if clock_observe(machine.clock) {
-            observations.push(machine);
-        }
+        observations.push(machine);
     }
     observations
 }
@@ -66,13 +56,14 @@ fn execute<F: Fn(u64) -> bool>(
 fn predicate_20_then_every_40(clock: u64) -> bool {
     match clock {
         20 => true,
-        x if x > 20 && (x-20) % 40 == 0 => true,
-        _ => false
+        x if x > 20 && (x - 20) % 40 == 0 => true,
+        _ => false,
     }
 }
 
 fn part1(instructions: &[Instruction]) -> i64 {
-    let observations = execute(Machine::default(), instructions, predicate_20_then_every_40);
+    let mut observations = execute(Machine::default(), instructions);
+    observations.retain(|m| predicate_20_then_every_40(m.clock));
     println!("{observations:?}");
     observations
         .iter()
@@ -146,7 +137,7 @@ mod tests {
     #[test]
     fn basic_input_execution() {
         let instructions = parse_input(BASIC_INPUT).unwrap();
-        let observations = execute(Machine::default(), &instructions, |_| true);
+        let observations = execute(Machine::default(), &instructions);
         let register_vals: Vec<_> = observations.iter().map(|m| m.register).collect();
         // cycles
         // 1 -> 1 (During the first cycle, X is 1)
@@ -161,7 +152,12 @@ mod tests {
     #[test]
     fn test_input_execution_partial() {
         let instructions = parse_input(TEST_INPUT).unwrap();
-        let observations = execute(Machine::default(), &instructions, predicate_20_then_every_40);
+        let mut observations = execute(
+            Machine::default(),
+            &instructions,
+        );
+        observations.retain(|m| predicate_20_then_every_40(m.clock));
+
         assert_eq!(
             observations[0],
             Machine {
