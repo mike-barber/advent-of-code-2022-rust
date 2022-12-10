@@ -30,10 +30,7 @@ impl Default for Machine {
     }
 }
 
-fn execute(
-    init: Machine,
-    instructions: &[Instruction],
-) -> Vec<Machine> {
+fn execute(init: Machine, instructions: &[Instruction]) -> Vec<Machine> {
     let mut machine = init;
     let mut observations = vec![];
     observations.push(machine);
@@ -71,8 +68,27 @@ fn part1(instructions: &[Instruction]) -> i64 {
         .sum()
 }
 
-fn part2(_instructions: &[Instruction]) -> i64 {
-    todo!()
+fn part2(instructions: &[Instruction]) -> Vec<String> {
+    let observations = execute(Machine::default(), instructions);
+
+    observations
+        .chunks_exact(40)
+        .map(|chunk| {
+            let mut line = String::new();
+            for (col, m) in chunk.iter().enumerate() {
+                let column = col as i64 + 1; // column is 1-indexed
+                let sprite_range = m.register..m.register + 3;
+                let ch = if sprite_range.contains(&column) {
+                    '#'
+                } else {
+                    '.'
+                };
+                line.push(ch);
+            }
+
+            line
+        })
+        .collect()
 }
 
 fn read_file(file_name: &str) -> String {
@@ -111,7 +127,11 @@ fn main() -> anyhow::Result<()> {
     println!("part 1 result = {part1_res}");
 
     let part2_res = part2(&instructions);
-    println!("part 2 result = {part2_res}");
+    println!("part 2 result:");
+    for line in part2_res {
+        println!("{line}");
+    }
+    println!("For my input, this should read EFUGLPAP");
 
     Ok(())
 }
@@ -152,10 +172,7 @@ mod tests {
     #[test]
     fn test_input_execution_partial() {
         let instructions = parse_input(TEST_INPUT).unwrap();
-        let mut observations = execute(
-            Machine::default(),
-            &instructions,
-        );
+        let mut observations = execute(Machine::default(), &instructions);
         observations.retain(|m| predicate_20_then_every_40(m.clock));
 
         assert_eq!(
@@ -209,10 +226,20 @@ mod tests {
         assert_eq!(res, 13140);
     }
 
-    // #[test]
-    // fn part2_correct() {
-    //     let instructions = parse_input(TEST_INPUT_PART2).unwrap();
-    //     let res = part2(&instructions);
-    //     assert_eq!(res, 36);
-    // }
+    #[test]
+    fn part2_correct() {
+        let instructions = parse_input(TEST_INPUT).unwrap();
+        let res = part2(&instructions);
+        let expected = indoc! {"
+            ##..##..##..##..##..##..##..##..##..##..
+            ###...###...###...###...###...###...###.
+            ####....####....####....####....####....
+            #####.....#####.....#####.....#####.....
+            ######......######......######......####
+            #######.......#######.......#######.....
+        "};
+
+        let expected_lines: Vec<String> = expected.lines().map(|l| l.to_string()).collect();
+        assert_eq!(res, expected_lines);
+    }
 }
