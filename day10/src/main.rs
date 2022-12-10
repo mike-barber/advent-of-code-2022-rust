@@ -1,11 +1,7 @@
 use anyhow::{anyhow, bail};
 use std::{
-    collections::HashSet,
     fs::File,
-    hash::Hash,
     io::Read,
-    ops::{Add, Sub},
-    str::FromStr,
 };
 use strum::EnumString;
 
@@ -17,7 +13,7 @@ enum Instruction {
 impl Instruction {
     fn cycles(&self) -> u64 {
         match self {
-            Instruction::Add(_) => 3,
+            Instruction::Add(_) => 2,
             Instruction::NoOp => 1,
         }
     }
@@ -44,19 +40,22 @@ fn execute<F: Fn(u64) -> bool>(
 ) -> Vec<Machine> {
     let mut machine = init;
     let mut observations = vec![];
+    if clock_observe(machine.clock) {
+        observations.push(machine);
+    }
     for instruction in instructions {
         let cycles = instruction.cycles();
-        for _ in 0..cycles - 1 {
+        for _ in 0..cycles-1 {
             machine.clock += 1;
             if clock_observe(machine.clock) {
                 observations.push(machine);
             }
         }
-        machine.clock += 1;
         match instruction {
             Instruction::Add(x) => machine.register += x,
             Instruction::NoOp => {}
         }
+        machine.clock += 1;
         if clock_observe(machine.clock) {
             observations.push(machine);
         }
@@ -64,8 +63,16 @@ fn execute<F: Fn(u64) -> bool>(
     observations
 }
 
+fn predicate_20_then_every_40(clock: u64) -> bool {
+    match clock {
+        20 => true,
+        x if x > 20 && (x-20) % 40 == 0 => true,
+        _ => false
+    }
+}
+
 fn part1(instructions: &[Instruction]) -> i64 {
-    let observations = execute(Machine::default(), instructions, |c| c % 20 == 0);
+    let observations = execute(Machine::default(), instructions, predicate_20_then_every_40);
     println!("{observations:?}");
     observations
         .iter()
@@ -73,7 +80,7 @@ fn part1(instructions: &[Instruction]) -> i64 {
         .sum()
 }
 
-fn part2(instructions: &[Instruction]) -> i64 {
+fn part2(_instructions: &[Instruction]) -> i64 {
     todo!()
 }
 
@@ -142,19 +149,19 @@ mod tests {
         let observations = execute(Machine::default(), &instructions, |_| true);
         let register_vals: Vec<_> = observations.iter().map(|m| m.register).collect();
         // cycles
-        // 1 -> 1
-        // 2 -> 1
-        // 3 -> 1
-        // 4 -> 4
-        // 5 -> 4
-        // 6 -> -1
+        // 1 -> 1 (During the first cycle, X is 1)
+        // 2 -> 1 (During the second cycle, X is still 1)
+        // 3 -> 1 (During the third cycle, X is still 1)
+        // 4 -> 4 (During the fourth cycle, X is still 4)
+        // 5 -> 4 (During the fifth cycle, X is still 4)
+        // 6 -> -1 (After the fifth cycle, .. setting X to -1.)
         assert_eq!(register_vals, [1, 1, 1, 4, 4, -1])
     }
 
     #[test]
     fn test_input_execution_partial() {
         let instructions = parse_input(TEST_INPUT).unwrap();
-        let observations = execute(Machine::default(), &instructions, |c| c % 20 == 0);
+        let observations = execute(Machine::default(), &instructions, predicate_20_then_every_40);
         assert_eq!(
             observations[0],
             Machine {
@@ -163,10 +170,38 @@ mod tests {
             }
         );
         assert_eq!(
-            observations[2],
+            observations[1],
             Machine {
                 clock: 60,
                 register: 19
+            }
+        );
+        assert_eq!(
+            observations[2],
+            Machine {
+                clock: 100,
+                register: 18
+            }
+        );
+        assert_eq!(
+            observations[3],
+            Machine {
+                clock: 140,
+                register: 21
+            }
+        );
+        assert_eq!(
+            observations[4],
+            Machine {
+                clock: 180,
+                register: 16
+            }
+        );
+        assert_eq!(
+            observations[5],
+            Machine {
+                clock: 220,
+                register: 18
             }
         );
     }
