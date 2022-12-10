@@ -61,7 +61,6 @@ fn predicate_20_then_every_40(clock: u64) -> bool {
 fn part1(instructions: &[Instruction]) -> i64 {
     let mut observations = execute(Machine::default(), instructions);
     observations.retain(|m| predicate_20_then_every_40(m.clock));
-    println!("{observations:?}");
     observations
         .iter()
         .map(|m| m.clock as i64 * m.register)
@@ -70,7 +69,6 @@ fn part1(instructions: &[Instruction]) -> i64 {
 
 fn part2(instructions: &[Instruction]) -> Vec<String> {
     let observations = execute(Machine::default(), instructions);
-
     observations
         .chunks_exact(40)
         .map(|chunk| {
@@ -121,7 +119,6 @@ fn parse_input(inputs: &str) -> anyhow::Result<Vec<Instruction>> {
 
 fn main() -> anyhow::Result<()> {
     let instructions = parse_input(&read_file("input.txt"))?;
-    println!("{instructions:?}");
 
     let part1_res = part1(&instructions);
     println!("part 1 result = {part1_res}");
@@ -150,11 +147,6 @@ mod tests {
     const TEST_INPUT: &str = include_str!("../input_test.txt");
 
     #[test]
-    fn parse_inputs_succeeds() {
-        parse_input(BASIC_INPUT).unwrap();
-    }
-
-    #[test]
     fn basic_input_execution() {
         let instructions = parse_input(BASIC_INPUT).unwrap();
         let observations = execute(Machine::default(), &instructions);
@@ -175,48 +167,33 @@ mod tests {
         let mut observations = execute(Machine::default(), &instructions);
         observations.retain(|m| predicate_20_then_every_40(m.clock));
 
-        assert_eq!(
-            observations[0],
+        let expected = [
             Machine {
                 clock: 20,
-                register: 21
-            }
-        );
-        assert_eq!(
-            observations[1],
+                register: 21,
+            },
             Machine {
                 clock: 60,
-                register: 19
-            }
-        );
-        assert_eq!(
-            observations[2],
+                register: 19,
+            },
             Machine {
                 clock: 100,
-                register: 18
-            }
-        );
-        assert_eq!(
-            observations[3],
+                register: 18,
+            },
             Machine {
                 clock: 140,
-                register: 21
-            }
-        );
-        assert_eq!(
-            observations[4],
+                register: 21,
+            },
             Machine {
                 clock: 180,
-                register: 16
-            }
-        );
-        assert_eq!(
-            observations[5],
+                register: 16,
+            },
             Machine {
                 clock: 220,
-                register: 18
-            }
-        );
+                register: 18,
+            },
+        ];
+        assert_eq!(observations, expected);
     }
 
     #[test]
