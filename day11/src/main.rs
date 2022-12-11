@@ -1,7 +1,7 @@
 use anyhow::{anyhow, bail};
 use regex::Regex;
-use std::{collections::HashSet, fs::File, io::Read, ops::DivAssign};
-use strum::EnumString;
+use std::{fs::File, io::Read};
+
 
 fn read_file(file_name: &str) -> String {
     let mut contents = String::new();
@@ -41,6 +41,7 @@ struct Monkey {
 struct Simulation {
     monkeys: Vec<Monkey>,
     holding_items: Vec<Vec<i32>>,
+    inspection_counts: Vec<usize>,
 }
 
 impl Simulation {
@@ -53,6 +54,9 @@ impl Simulation {
             // take all items for this monkey, replacing them with an empty vector
             let mut items = vec![];
             std::mem::swap(&mut self.holding_items[i], &mut items);
+
+            // increase inspection counts for this monkey
+            self.inspection_counts[i] += items.len();
 
             // give the items to the other monkeys according to the rules
             for item in items.iter() {
@@ -129,13 +133,30 @@ fn parse_input(inputs: &str) -> anyhow::Result<Simulation> {
 
     println!("{monkeys:?}");
     println!("{holding_items:?}");
+    
+    let inspection_counts = vec![0; monkeys.len()];
 
     Ok(Simulation {
         monkeys,
         holding_items,
+        inspection_counts
     })
 }
 
+
+fn part1(inputs: &str) -> anyhow::Result<usize> {
+    let mut simulation = parse_input(inputs)?;
+
+    for _ in 0..20 {
+        simulation.simulation_round();
+    }
+
+    let mut counts = simulation.inspection_counts;
+    counts.sort();
+    let monkey_business = counts.iter().rev().take(2).product();
+    
+    Ok(monkey_business)
+}
 
 
 // fn parse_input(inputs: &str) -> anyhow::Result<Vec<Instruction>> {
@@ -158,7 +179,9 @@ fn parse_input(inputs: &str) -> anyhow::Result<Simulation> {
 // }
 
 fn main() -> anyhow::Result<()> {
-    let simulation = parse_input(&read_file("input.txt"))?;
+    let inputs = read_file("input.txt");
+    
+    println!("part1 result: {}", part1(&inputs)?);
 
     Ok(())
 }
@@ -168,7 +191,7 @@ mod tests {
     use crate::*;
     use indoc::indoc;
 
-    const BASIC_INPUT: &str = indoc! {"
+    const TEST_INPUT: &str = indoc! {"
         Monkey 0:
         Starting items: 79, 98
         Operation: new = old * 19
@@ -200,14 +223,20 @@ mod tests {
 
     #[test]
     fn basic_input_execution() {
-        parse_input(BASIC_INPUT).unwrap();
+        parse_input(TEST_INPUT).unwrap();
     }
 
     #[test]
     fn simulate_one() {
-        let mut sim = parse_input(BASIC_INPUT).unwrap();
+        let mut sim = parse_input(TEST_INPUT).unwrap();
         println!("{:?}", sim.holding_items);
         sim.simulation_round();
         println!("{:?}", sim.holding_items);
+    }
+
+    #[test]
+    fn part1_correct() {
+        let res = part1(TEST_INPUT).unwrap();
+        assert_eq!(res, 10605);
     }
 }
