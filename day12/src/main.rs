@@ -160,7 +160,7 @@ fn find_path_dijkstra(problem: &Problem, start: Point) -> Option<Vec<Point>> {
     *dist.get_mut(&start).unwrap() = 0;
     q.change_priority(&start, 0);
 
-    // dijkstra's shortest path algorithm, with distance between vertices of 1 
+    // update all the reachable nodes    
     while let Some((u, _)) = q.pop() {
         let valid_moves = valid_moves(&problem.grid, u);
         for v in valid_moves {
@@ -191,7 +191,7 @@ fn find_path_dijkstra(problem: &Problem, start: Point) -> Option<Vec<Point>> {
         path.push(u)
     }
 
-    if path.last().unwrap() == &problem.start {
+    if path.last().unwrap() == &start {
         Some(path)
     } else {
         None
@@ -203,12 +203,36 @@ fn part1(problem: &Problem) -> Option<usize> {
     solution.map(|s| s.len() - 1)
 }
 
+// This could be more efficient -- run Dijkstra in reverse from the end,
+// and then consider the shortest path found to any destination; however,
+// this would require re-engineering the feasibility function as well as
+// the termination conditions. This is good enough for answering the question.
+fn part2(problem: &Problem) -> usize {
+    let mut minimum_steps = usize::MAX;
+    for x in 0..problem.grid.width as isize {
+        for y in 0..problem.grid.height as isize {
+            let p = Point(x, y);
+            let h = problem.grid.get(&p).unwrap();
+            // height a is zero
+            if *h == 0 {
+                if let Some(path) = find_path_dijkstra(problem, p) {
+                    minimum_steps = minimum_steps.min(path.len() - 1);
+                }
+            }
+        }
+    }
+    minimum_steps
+}
+
 fn main() -> anyhow::Result<()> {
     let inputs = read_file("input.txt");
     let problem = parse_input(&inputs)?;
-    println!("{problem:?}");
-    let solution = part1(&problem).unwrap();
-    println!("{solution:?}");
+
+    let res1 = part1(&problem).unwrap();
+    println!("part1: {res1:?}");
+
+    let res2 = part2(&problem);
+    println!("part2: {res2}");
 
     Ok(())
 }
@@ -228,8 +252,7 @@ mod tests {
 
     #[test]
     fn parse_inputs_succeeds() {
-        let problem = parse_input(TEST_INPUT).unwrap();
-        println!("{problem:?}");
+        parse_input(TEST_INPUT).unwrap();
     }
 
     #[test]
@@ -237,5 +260,12 @@ mod tests {
         let problem = parse_input(TEST_INPUT).unwrap();
         let solution = part1(&problem).unwrap();
         assert_eq!(solution, 31);
+    }
+
+    #[test]
+    fn part2_correct() {
+        let problem = parse_input(TEST_INPUT).unwrap();
+        let solution = part2(&problem);
+        assert_eq!(solution, 29);
     }
 }
