@@ -8,18 +8,18 @@ use std::{
 use anyhow::{anyhow, bail};
 
 #[derive(Debug)]
-struct Grid {
-    values: Vec<i32>,
+struct Grid<T> {
+    values: Vec<T>,
     width: usize,
     height: usize,
 }
-impl Grid {
-    fn get(&self, point: Point) -> Option<i32> {
+impl<T> Grid<T> {
+    fn get(&self, point: Point) -> Option<&T> {
         if (0..self.width as isize).contains(&point.0)
             && (0..self.height as isize).contains(&point.1)
         {
             let ix = point.0 + point.1 * self.width as isize;
-            self.values.get(ix as usize).copied()
+            self.values.get(ix as usize)
         } else {
             None
         }
@@ -65,7 +65,7 @@ impl From<Dir> for Point {
 struct Problem {
     start: Point,
     destination: Point,
-    grid: Grid,
+    grid: Grid<i32>,
 }
 
 fn read_file(file_name: &str) -> String {
@@ -120,7 +120,7 @@ fn parse_input(inputs: &str) -> anyhow::Result<Problem> {
     })
 }
 
-fn valid_moves_from(grid: &Grid, current: Point, history: &HashSet<Point>) -> [Option<Point>; 4] {
+fn valid_moves_from(grid: &Grid<i32>, current: Point, history: &HashSet<Point>) -> [Option<Point>; 4] {
     let mut moves = [None; 4];
     let mut options = [None; 4];
     let mut i = 0;
@@ -135,7 +135,7 @@ fn valid_moves_from(grid: &Grid, current: Point, history: &HashSet<Point>) -> [O
         }
 
         if let Some(h) = grid.get(p) {
-            if (h - 1) <= current_height {
+            if (h - 1) <= *current_height {
                 options[i] = Some((p, h));
                 i += 1;
             }
@@ -144,7 +144,7 @@ fn valid_moves_from(grid: &Grid, current: Point, history: &HashSet<Point>) -> [O
 
     options.sort_by_key(|opt| match opt {
         None => -1,
-        Some((_, h)) => *h,
+        Some((_, h)) => **h,
     });
 
     let mut it = options.iter().rev();
