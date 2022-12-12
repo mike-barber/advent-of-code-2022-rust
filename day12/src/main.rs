@@ -17,7 +17,7 @@ impl Grid {
         if (0..self.width as isize).contains(&point.0)
             && (0..self.height as isize).contains(&point.1)
         {
-            let ix = point.0 + point.1 * self.height as isize;
+            let ix = point.0 + point.1 * self.width as isize;
             self.values.get(ix as usize).copied()
         } else {
             None
@@ -101,7 +101,7 @@ fn parse_input(inputs: &str) -> anyhow::Result<Problem> {
             }
 
             let v = ch as i32 - 'a' as i32;
-            values[x + y * height] = v;
+            values[x + y * width] = v;
         }
     }
 
@@ -156,8 +156,40 @@ fn valid_moves_from(grid: &Grid, current: Point, history: &HashSet<Point>) -> [O
     moves
 }
 
-fn main() {
-    println!("Hello, world!");
+fn find_path(problem: &Problem, current: Point,  history: &mut HashSet<Point>) -> Option<HashSet<Point>> {
+    if current == problem.destination {
+        return Some(history.clone());
+    }
+
+    let options = valid_moves_from(&problem.grid, current, history);
+    for next_move in options {
+        if let Some(next_move) = next_move {
+            // insert point and check if we've got a solution (recursively)
+            history.insert(next_move);
+            if let Some(found) = find_path(problem, next_move,history) {
+                return Some(found);
+            }
+            // not found
+            history.remove(&next_move);
+        }
+    }
+
+    None
+}
+
+fn part1(problem: &Problem) -> Option<usize> {
+    let mut history = HashSet::default();
+    let solution = find_path(problem, problem.start, &mut history);
+    solution.map(|s| s.len())
+}
+
+fn main() -> anyhow::Result<()>{
+    let inputs = read_file("input.txt");
+    let problem = parse_input(&inputs)?;
+    println!("{problem:?}");
+    let solution = part1(&problem).unwrap();
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -177,6 +209,13 @@ mod tests {
     fn parse_inputs_succeeds() {
         let problem = parse_input(TEST_INPUT).unwrap();
         println!("{problem:?}");
+    }
+
+    #[test]
+    fn part1_correct() {
+        let problem = parse_input(TEST_INPUT).unwrap();
+        let solution = part1(&problem).unwrap();
+        assert_eq!(solution, 31);
     }
 }
 
