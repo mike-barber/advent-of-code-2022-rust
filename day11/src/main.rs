@@ -3,7 +3,6 @@ use num_bigint::BigInt;
 use regex::Regex;
 use std::{fs::File, io::Read};
 
-
 fn read_file(file_name: &str) -> String {
     let mut contents = String::new();
     File::open(file_name)
@@ -20,13 +19,12 @@ enum Operation {
     Square,
 }
 impl Operation {
-    fn calculate_new(&self, old: &BigInt, division_factor: &BigInt) -> BigInt {
-        let new = match self {
+    fn calculate_new(&self, old: &BigInt) -> BigInt {
+        match self {
             Operation::AddConst(a) => old + a,
             Operation::MulConst(a) => old * a,
             Operation::Square => old * old,
-        };
-        new / division_factor
+        }
     }
 }
 
@@ -46,17 +44,24 @@ struct Simulation {
 }
 
 impl Simulation {
-
-    fn simulation_part1(&mut self) {
-        self.simulation_round(3.into());
+    fn simulation_part1(&mut self, num_rounds: usize) {
+        for _ in 0..num_rounds {
+            self.simulation_round(|n| n / 3);
+        }
     }
 
-    fn simulation_part2(&mut self) {
-        self.simulation_round(1.into());
+    fn simulation_part2(&mut self, num_rounds: usize) {
+        let global_modulus: BigInt = self
+            .monkeys
+            .iter()
+            .map(|m| m.test_divisible_by.clone())
+            .product();
+        for _ in 0..num_rounds {
+            self.simulation_round(|n| n % &global_modulus);
+        }
     }
 
-
-    fn simulation_round(&mut self, division_factor: BigInt) {
+    fn simulation_round<F: Fn(BigInt) -> BigInt>(&mut self, post_op: F) {
         let length = self.monkeys.len();
         for i in 0..length {
             let monkey = &mut self.monkeys[i];
@@ -70,7 +75,8 @@ impl Simulation {
 
             // give the items to the other monkeys according to the rules
             for item in items.iter() {
-                let new_val = monkey.operation.calculate_new(item, &division_factor);
+                let new_val = monkey.operation.calculate_new(item);
+                let new_val = post_op(new_val);
                 let dest_monkey = if &new_val % &monkey.test_divisible_by == 0.into() {
                     monkey.test_true
                 } else {
@@ -82,9 +88,7 @@ impl Simulation {
             }
         }
     }
-   
 }
-
 
 fn parse_input(inputs: &str) -> anyhow::Result<Simulation> {
     //let re_monkey = Regex::new(r#"Monkey (\d+)"#)?;
@@ -102,7 +106,6 @@ fn parse_input(inputs: &str) -> anyhow::Result<Simulation> {
                 let item = cap[0].parse()?;
                 items.push(item);
             }
-            println!("{:?}", items);
             items
         };
 
@@ -142,57 +145,45 @@ fn parse_input(inputs: &str) -> anyhow::Result<Simulation> {
         holding_items.push(starting_items);
     }
 
-    println!("{monkeys:?}");
-    println!("{holding_items:?}");
-    
+    // println!("{monkeys:?}");
+    // println!("{holding_items:?}");
+
     let inspection_counts = vec![0; monkeys.len()];
 
     Ok(Simulation {
         monkeys,
         holding_items,
-        inspection_counts
+        inspection_counts,
     })
 }
 
-
 fn part1(inputs: &str) -> anyhow::Result<usize> {
     let mut simulation = parse_input(inputs)?;
-
-    for _ in 0..20 {
-        simulation.simulation_part1();
-    }
+    simulation.simulation_part1(20);
 
     let mut counts = simulation.inspection_counts;
     counts.sort();
     let monkey_business = counts.iter().rev().take(2).product();
-    
+
     Ok(monkey_business)
 }
 
+fn part2(inputs: &str) -> anyhow::Result<usize> {
+    let mut simulation = parse_input(inputs)?;
+    simulation.simulation_part2(10_000);
 
-// fn parse_input(inputs: &str) -> anyhow::Result<Vec<Instruction>> {
-//     let mut instructions = vec![];
-//     for line in inputs.lines() {
-//         let mut split = line.split_whitespace();
-//         let code = split.next();
-//         let instruction = match code {
-//             Some("noop") => Instruction::NoOp,
-//             Some("addx") => {
-//                 let argument = split.next().ok_or_else(|| anyhow!("no argument for add"))?;
-//                 let argument = argument.parse()?;
-//                 Instruction::Add(argument)
-//             }
-//             _ => bail!("unrecognised instruction {code:?}"),
-//         };
-//         instructions.push(instruction);
-//     }
-//     Ok(instructions)
-// }
+    let mut counts = simulation.inspection_counts;
+    counts.sort();
+    let monkey_business = counts.iter().rev().take(2).product();
+
+    Ok(monkey_business)
+}
 
 fn main() -> anyhow::Result<()> {
     let inputs = read_file("input.txt");
-    
+
     println!("part1 result: {}", part1(&inputs)?);
+    println!("part2 result: {}", part2(&inputs)?);
 
     Ok(())
 }
@@ -240,11 +231,8 @@ mod tests {
     #[test]
     fn simulate_one_part1() {
         let mut sim = parse_input(TEST_INPUT).unwrap();
-        println!("{:?}", sim.holding_items);
-        println!("{:?}", sim.inspection_counts);
-        sim.simulation_part1();
-        println!("{:?}", sim.holding_items);
-        println!("{:?}", sim.inspection_counts);
+        sim.simulation_part1(20);
+        assert_eq!(sim.inspection_counts, [101, 95, 7, 105])
     }
 
     #[test]
@@ -256,10 +244,7 @@ mod tests {
     #[test]
     fn simulate_one_part2() {
         let mut sim = parse_input(TEST_INPUT).unwrap();
-        for i in 1..=10_000 {
-            sim.simulation_part2();
-            //println!("round {i} => {:?} holding {:?}", sim.inspection_counts, sim.holding_items);
-            println!("round {i} => {:?}", sim.inspection_counts);
-        }
+        sim.simulation_part2(10_000);
+        assert_eq!(sim.inspection_counts, [52166, 47830, 1938, 52013])
     }
 }
