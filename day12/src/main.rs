@@ -142,6 +142,7 @@ fn valid_moves(grid: &Grid<i32>, current: Point) -> [Option<Point>; 4] {
     moves
 }
 
+// Dijkstra's shortest path algorith, using distances between vertices as 1
 fn find_path_dijkstra(problem: &Problem, start: Point) -> Option<Vec<Point>> {
     let mut dist: HashMap<Point, i32> = HashMap::new();
     let mut prev: HashMap<Point, Option<Point>> = HashMap::new();
@@ -160,7 +161,7 @@ fn find_path_dijkstra(problem: &Problem, start: Point) -> Option<Vec<Point>> {
     *dist.get_mut(&start).unwrap() = 0;
     q.change_priority(&start, 0);
 
-    // update all the reachable nodes    
+    // update all the reachable nodes
     while let Some((u, _)) = q.pop() {
         let valid_moves = valid_moves(&problem.grid, u);
         for v in valid_moves {
