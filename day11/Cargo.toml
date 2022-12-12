@@ -8,5 +8,4 @@ edition = "2021"
 [dependencies]
 indoc = "1.0"
 anyhow = "1.0"
-num-bigint = "0.4"
 regex = "1"

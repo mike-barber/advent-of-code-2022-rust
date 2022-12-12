@@ -1,5 +1,4 @@
 use anyhow::{anyhow, bail};
-use num_bigint::BigInt;
 use regex::Regex;
 use std::{fs::File, io::Read};
 
@@ -14,12 +13,12 @@ fn read_file(file_name: &str) -> String {
 
 #[derive(Debug, Copy, Clone)]
 enum Operation {
-    AddConst(i32),
-    MulConst(i32),
+    AddConst(i64),
+    MulConst(i64),
     Square,
 }
 impl Operation {
-    fn calculate_new(&self, old: &BigInt) -> BigInt {
+    fn calculate_new(&self, old: &i64) -> i64 {
         match self {
             Operation::AddConst(a) => old + a,
             Operation::MulConst(a) => old * a,
@@ -31,7 +30,7 @@ impl Operation {
 #[derive(Debug, Clone)]
 struct Monkey {
     operation: Operation,
-    test_divisible_by: BigInt,
+    test_divisible_by: i64,
     test_true: usize,
     test_false: usize,
 }
@@ -39,7 +38,7 @@ struct Monkey {
 #[derive(Debug, Clone)]
 struct Simulation {
     monkeys: Vec<Monkey>,
-    holding_items: Vec<Vec<BigInt>>,
+    holding_items: Vec<Vec<i64>>,
     inspection_counts: Vec<usize>,
 }
 
@@ -51,17 +50,13 @@ impl Simulation {
     }
 
     fn simulation_part2(&mut self, num_rounds: usize) {
-        let global_modulus: BigInt = self
-            .monkeys
-            .iter()
-            .map(|m| m.test_divisible_by.clone())
-            .product();
+        let global_modulus: i64 = self.monkeys.iter().map(|m| m.test_divisible_by).product();
         for _ in 0..num_rounds {
-            self.simulation_round(|n| n % &global_modulus);
+            self.simulation_round(|n| n % global_modulus);
         }
     }
 
-    fn simulation_round<F: Fn(BigInt) -> BigInt>(&mut self, post_op: F) {
+    fn simulation_round<F: Fn(i64) -> i64>(&mut self, post_op: F) {
         let length = self.monkeys.len();
         for i in 0..length {
             let monkey = &mut self.monkeys[i];
@@ -77,7 +72,7 @@ impl Simulation {
             for item in items.iter() {
                 let new_val = monkey.operation.calculate_new(item);
                 let new_val = post_op(new_val);
-                let dest_monkey = if &new_val % &monkey.test_divisible_by == 0.into() {
+                let dest_monkey = if new_val % monkey.test_divisible_by == 0.into() {
                     monkey.test_true
                 } else {
                     monkey.test_false
