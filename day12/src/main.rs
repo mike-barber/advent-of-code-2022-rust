@@ -1,11 +1,12 @@
 use std::{
-    collections::HashSet,
+    collections::HashMap,
     fs::File,
     io::Read,
     ops::{Add, Sub},
 };
 
 use anyhow::{anyhow, bail};
+use priority_queue::PriorityQueue;
 
 #[derive(Debug)]
 struct Grid<T> {
@@ -14,15 +15,17 @@ struct Grid<T> {
     height: usize,
 }
 impl<T> Grid<T> {
-    fn get(&self, point: Point) -> Option<&T> {
-        if (0..self.width as isize).contains(&point.0)
-            && (0..self.height as isize).contains(&point.1)
-        {
+    fn get(&self, point: &Point) -> Option<&T> {
+        if self.contains(point) {
             let ix = point.0 + point.1 * self.width as isize;
             self.values.get(ix as usize)
         } else {
             None
         }
+    }
+
+    fn contains(&self, point: &Point) -> bool {
+        (0..self.width as isize).contains(&point.0) && (0..self.height as isize).contains(&point.1)
     }
 }
 
@@ -120,75 +123,84 @@ fn parse_input(inputs: &str) -> anyhow::Result<Problem> {
     })
 }
 
-fn valid_moves_from(grid: &Grid<i32>, current: Point, history: &HashSet<Point>) -> [Option<Point>; 4] {
+fn valid_moves(grid: &Grid<i32>, current: Point) -> [Option<Point>; 4] {
     let mut moves = [None; 4];
-    let mut options = [None; 4];
     let mut i = 0;
 
-    let current_height = grid.get(current).unwrap();
-
+    let current_height = grid.get(&current).unwrap();
     for dir in [Dir::U, Dir::D, Dir::L, Dir::R] {
         let p = current + dir.into();
 
-        if history.contains(&p) {
-            continue;
-        }
-
-        if let Some(h) = grid.get(p) {
+        if let Some(h) = grid.get(&p) {
             if (h - 1) <= *current_height {
-                options[i] = Some((p, h));
+                moves[i] = Some(p);
                 i += 1;
             }
         }
     }
 
-    options.sort_by_key(|opt| match opt {
-        None => -1,
-        Some((_, h)) => **h,
-    });
-
-    let mut it = options.iter().rev();
-    let mut j = 0;
-    while let Some(Some((p, _))) = it.next() {
-        moves[j] = Some(*p);
-        j += 1;
-    }
-
     moves
 }
 
-fn find_path(
-    problem: &Problem,
-    current: Point,
-    history: &mut HashSet<Point>,
-) -> Option<HashSet<Point>> {
-    if current == problem.destination {
-        return Some(history.clone());
-    }
+fn find_path_dijkstra(problem: &Problem, start: Point) -> Option<Vec<Point>> {
+    let mut dist: HashMap<Point, i32> = HashMap::new();
+    let mut prev: HashMap<Point, Option<Point>> = HashMap::new();
 
-    let options = valid_moves_from(&problem.grid, current, history);
-    let mut best_solution: Option<HashSet<Point>> = None;
-    for next_move in options {
-        if let Some(next_move) = next_move {
-            // insert point and check if we've got a solution (recursively)
-            history.insert(next_move);
-            if let Some(found) = find_path(problem, next_move, history) {
-                if best_solution.is_none() || found.len() < best_solution.as_ref().unwrap().len() {
-                    best_solution = Some(found);
+    // initialise problem
+    let mut q = PriorityQueue::new();
+    for x in 0..problem.grid.width {
+        for y in 0..problem.grid.height {
+            let point = Point(x as isize, y as isize);
+            dist.insert(point, i32::MAX / 2);
+            prev.insert(point, None);
+            // queue priority is highest first
+            q.push(point, i32::MIN);
+        }
+    }
+    *dist.get_mut(&start).unwrap() = 0;
+    q.change_priority(&start, 0);
+
+    // dijkstra's shortest path algorithm, with distance between vertices of 1 
+    while let Some((u, _)) = q.pop() {
+        let valid_moves = valid_moves(&problem.grid, u);
+        for v in valid_moves {
+            // consider valid neighbours still in the queue
+            if v.is_none() {
+                continue;
+            }
+            let v = v.unwrap();
+            if q.get(&v).is_some() {
+                // distance is to current node (u) + 1
+                let alt = dist.get(&u).unwrap() + 1;
+                if alt < *dist.get(&v).unwrap() {
+                    // update distances to this node, and record how we got here
+                    *dist.get_mut(&v).unwrap() = alt;
+                    *prev.get_mut(&v).unwrap() = Some(u);
+                    q.change_priority(&v, -alt);
                 }
             }
-            // not found
-            history.remove(&next_move);
         }
     }
 
-    best_solution
+    // reverse iteration over previous elements to find the path
+    let mut path = Vec::new();
+    let mut u = problem.destination;
+    path.push(u);
+    while let Some(Some(v)) = prev.get(&u) {
+        u = *v;
+        path.push(u)
+    }
+
+    if path.last().unwrap() == &problem.start {
+        Some(path)
+    } else {
+        None
+    }
 }
 
 fn part1(problem: &Problem) -> Option<usize> {
-    let mut history = HashSet::default();
-    let solution = find_path(problem, problem.start, &mut history);
-    solution.map(|s| s.len())
+    let solution = find_path_dijkstra(problem, problem.start);
+    solution.map(|s| s.len() - 1)
 }
 
 fn main() -> anyhow::Result<()> {
