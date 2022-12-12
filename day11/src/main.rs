@@ -1,4 +1,5 @@
 use anyhow::{anyhow, bail};
+use num_bigint::BigInt;
 use regex::Regex;
 use std::{fs::File, io::Read};
 
@@ -19,20 +20,20 @@ enum Operation {
     Square,
 }
 impl Operation {
-    fn calculate_new(&self, old: i32) -> i32 {
+    fn calculate_new(&self, old: &BigInt, division_factor: &BigInt) -> BigInt {
         let new = match self {
             Operation::AddConst(a) => old + a,
             Operation::MulConst(a) => old * a,
             Operation::Square => old * old,
         };
-        new / 3
+        new / division_factor
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 struct Monkey {
     operation: Operation,
-    test_divisible_by: i32,
+    test_divisible_by: BigInt,
     test_true: usize,
     test_false: usize,
 }
@@ -40,16 +41,25 @@ struct Monkey {
 #[derive(Debug, Clone)]
 struct Simulation {
     monkeys: Vec<Monkey>,
-    holding_items: Vec<Vec<i32>>,
+    holding_items: Vec<Vec<BigInt>>,
     inspection_counts: Vec<usize>,
 }
 
 impl Simulation {
-    fn simulation_round(&mut self) {
 
+    fn simulation_part1(&mut self) {
+        self.simulation_round(3.into());
+    }
+
+    fn simulation_part2(&mut self) {
+        self.simulation_round(1.into());
+    }
+
+
+    fn simulation_round(&mut self, division_factor: BigInt) {
         let length = self.monkeys.len();
         for i in 0..length {
-            let monkey = self.monkeys[i];
+            let monkey = &mut self.monkeys[i];
 
             // take all items for this monkey, replacing them with an empty vector
             let mut items = vec![];
@@ -60,8 +70,8 @@ impl Simulation {
 
             // give the items to the other monkeys according to the rules
             for item in items.iter() {
-                let new_val = monkey.operation.calculate_new(*item);
-                let dest_monkey = if new_val % monkey.test_divisible_by == 0 {
+                let new_val = monkey.operation.calculate_new(item, &division_factor);
+                let dest_monkey = if &new_val % &monkey.test_divisible_by == 0.into() {
                     monkey.test_true
                 } else {
                     monkey.test_false
@@ -72,6 +82,7 @@ impl Simulation {
             }
         }
     }
+   
 }
 
 
@@ -107,7 +118,7 @@ fn parse_input(inputs: &str) -> anyhow::Result<Simulation> {
             }
         };
 
-        let test_divisible: i32 = re_numbers
+        let test_divisible = re_numbers
             .captures(block[3])
             .ok_or_else(|| anyhow!("divisible by missing"))?[0]
             .parse()?;
@@ -148,7 +159,7 @@ fn part1(inputs: &str) -> anyhow::Result<usize> {
     let mut simulation = parse_input(inputs)?;
 
     for _ in 0..20 {
-        simulation.simulation_round();
+        simulation.simulation_part1();
     }
 
     let mut counts = simulation.inspection_counts;
@@ -227,16 +238,28 @@ mod tests {
     }
 
     #[test]
-    fn simulate_one() {
+    fn simulate_one_part1() {
         let mut sim = parse_input(TEST_INPUT).unwrap();
         println!("{:?}", sim.holding_items);
-        sim.simulation_round();
+        println!("{:?}", sim.inspection_counts);
+        sim.simulation_part1();
         println!("{:?}", sim.holding_items);
+        println!("{:?}", sim.inspection_counts);
     }
 
     #[test]
     fn part1_correct() {
         let res = part1(TEST_INPUT).unwrap();
         assert_eq!(res, 10605);
+    }
+
+    #[test]
+    fn simulate_one_part2() {
+        let mut sim = parse_input(TEST_INPUT).unwrap();
+        for i in 1..=10_000 {
+            sim.simulation_part2();
+            //println!("round {i} => {:?} holding {:?}", sim.inspection_counts, sim.holding_items);
+            println!("round {i} => {:?}", sim.inspection_counts);
+        }
     }
 }
