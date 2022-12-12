@@ -1,7 +1,8 @@
 use std::{
+    collections::HashSet,
     fs::File,
     io::Read,
-    ops::{Add, Sub}, collections::HashSet,
+    ops::{Add, Sub},
 };
 
 use anyhow::{anyhow, bail};
@@ -119,8 +120,8 @@ fn parse_input(inputs: &str) -> anyhow::Result<Problem> {
     })
 }
 
-fn valid_moves_from(grid: &Grid, current: Point, history: &HashSet<Point>) -> [Option<Point>;4] {
-    let mut moves = [None;4];
+fn valid_moves_from(grid: &Grid, current: Point, history: &HashSet<Point>) -> [Option<Point>; 4] {
+    let mut moves = [None; 4];
     let mut options = [None; 4];
     let mut i = 0;
 
@@ -134,21 +135,21 @@ fn valid_moves_from(grid: &Grid, current: Point, history: &HashSet<Point>) -> [O
         }
 
         if let Some(h) = grid.get(p) {
-            if (h-1) <= current_height {
+            if (h - 1) <= current_height {
                 options[i] = Some((p, h));
                 i += 1;
             }
         }
     }
-    
+
     options.sort_by_key(|opt| match opt {
         None => -1,
-        Some((_,h)) => *h
+        Some((_, h)) => *h,
     });
 
     let mut it = options.iter().rev();
     let mut j = 0;
-    while let Some(Some((p,_))) = it.next() {
+    while let Some(Some((p, _))) = it.next() {
         moves[j] = Some(*p);
         j += 1;
     }
@@ -156,25 +157,32 @@ fn valid_moves_from(grid: &Grid, current: Point, history: &HashSet<Point>) -> [O
     moves
 }
 
-fn find_path(problem: &Problem, current: Point,  history: &mut HashSet<Point>) -> Option<HashSet<Point>> {
+fn find_path(
+    problem: &Problem,
+    current: Point,
+    history: &mut HashSet<Point>,
+) -> Option<HashSet<Point>> {
     if current == problem.destination {
         return Some(history.clone());
     }
 
     let options = valid_moves_from(&problem.grid, current, history);
+    let mut best_solution: Option<HashSet<Point>> = None;
     for next_move in options {
         if let Some(next_move) = next_move {
             // insert point and check if we've got a solution (recursively)
             history.insert(next_move);
-            if let Some(found) = find_path(problem, next_move,history) {
-                return Some(found);
+            if let Some(found) = find_path(problem, next_move, history) {
+                if best_solution.is_none() || found.len() < best_solution.as_ref().unwrap().len() {
+                    best_solution = Some(found);
+                }
             }
             // not found
             history.remove(&next_move);
         }
     }
 
-    None
+    best_solution
 }
 
 fn part1(problem: &Problem) -> Option<usize> {
@@ -183,11 +191,12 @@ fn part1(problem: &Problem) -> Option<usize> {
     solution.map(|s| s.len())
 }
 
-fn main() -> anyhow::Result<()>{
+fn main() -> anyhow::Result<()> {
     let inputs = read_file("input.txt");
     let problem = parse_input(&inputs)?;
     println!("{problem:?}");
     let solution = part1(&problem).unwrap();
+    println!("{solution:?}");
 
     Ok(())
 }
@@ -218,4 +227,3 @@ mod tests {
         assert_eq!(solution, 31);
     }
 }
-
