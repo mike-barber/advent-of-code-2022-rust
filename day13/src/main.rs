@@ -4,8 +4,7 @@ use day13::*;
 
 fn read_file(file_name: &str) -> anyhow::Result<String> {
     let mut contents = String::new();
-    File::open(file_name)?
-        .read_to_string(&mut contents)?;
+    File::open(file_name)?.read_to_string(&mut contents)?;
     Ok(contents)
 }
 
@@ -34,10 +33,42 @@ fn part1(problem: &Problem) -> anyhow::Result<usize> {
     Ok(indices.iter().sum())
 }
 
-fn main() -> anyhow::Result<()>{
+fn part2(problem: &Problem) -> anyhow::Result<usize> {
+    // get all packets
+    let mut all_packets: Vec<_> = problem
+        .pairs
+        .iter()
+        .cloned()
+        .flat_map(|p| [p.0, p.1])
+        .collect();
+
+    // add dividers
+    let divider_2: Value = vec![vec![2.into()].into()].into();
+    let divider_6: Value = vec![vec![6.into()].into()].into();
+    all_packets.push(divider_2.clone());
+    all_packets.push(divider_6.clone());
+
+    // sort
+    all_packets.sort();
+
+    // find indices of the divider packets
+    let index_divider_2 = all_packets
+        .iter()
+        .position(|p| p == &divider_2)
+        .ok_anyhow()?;
+    let index_divider_6 = all_packets
+        .iter()
+        .position(|p| p == &divider_6)
+        .ok_anyhow()?;
+
+    Ok((index_divider_2 + 1) * (index_divider_6 + 1))
+}
+
+fn main() -> anyhow::Result<()> {
     let problem = parse_input(&read_file("input.txt")?)?;
 
     println!("part1 result: {}", part1(&problem)?);
+    println!("part1 result: {}", part2(&problem)?);
 
     Ok(())
 }
@@ -85,10 +116,10 @@ mod tests {
         assert_eq!(solution, 13);
     }
 
-    // #[test]
-    // fn part2_correct() {
-    //     let problem = parse_input(TEST_INPUT).unwrap();
-    //     let solution = part2(&problem);
-    //     assert_eq!(solution, 29);
-    // }
+    #[test]
+    fn part2_correct() {
+        let problem = parse_input(TEST_INPUT).unwrap();
+        let solution = part2(&problem).unwrap();
+        assert_eq!(solution, 140);
+    }
 }
