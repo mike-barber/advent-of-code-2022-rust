@@ -3,9 +3,47 @@ use std::{fs::File, io::Read};
 use day14::GridSquare::*;
 use day14::*;
 
+#[derive(Debug, Clone)]
 struct Problem {
     grid: Grid<GridSquare>,
     sand_origin: Point,
+}
+impl Problem {
+    // drop sand and find resting location, None if we fall off the grid
+    fn drop_sand(&self) -> Option<Point> {
+        let delta_below = Point(0, 1);
+        let delta_left = Point(-1, 1);
+        let delta_right = Point(1, 1);
+
+        let mut cur = self.sand_origin;
+        loop {
+            // check move down
+            let point_below = cur + delta_below;
+            let below = self.grid.get(&point_below)?;
+            if *below == Blank {
+                cur = point_below;
+                continue;
+            }
+
+            // check move left and right
+            let point_left = cur + delta_left;
+            let left = self.grid.get(&point_left)?;
+            if *left == Blank {
+                cur = point_left;
+                continue;
+            }
+
+            let point_right = cur + delta_right;
+            let right = self.grid.get(&point_right)?;
+            if *right == Blank {
+                cur = point_right;
+                continue;
+            }
+
+            // no more moves left; sand grain comes to rest here
+            return Some(cur);
+        }
+    }
 }
 
 fn read_file(file_name: &str) -> anyhow::Result<String> {
@@ -14,14 +52,14 @@ fn read_file(file_name: &str) -> anyhow::Result<String> {
     Ok(contents)
 }
 
-fn parse_rocks(line: &str) -> anyhow::Result<Vec<Point>> {
+fn parse_rocks(line: &str, x_offset: isize) -> anyhow::Result<Vec<Point>> {
     let points = line
         .split(" -> ")
         .map(|seg| {
             let mut seg_iter = seg.split(",");
-            let x = seg_iter.next().ok_anyhow()?.parse()?;
-            let y = seg_iter.next().ok_anyhow()?.parse()?;
-            Ok(Point(x, y))
+            let x: isize = seg_iter.next().ok_anyhow()?.parse()?;
+            let y: isize = seg_iter.next().ok_anyhow()?.parse()?;
+            Ok(Point(x - x_offset, y))
         })
         .collect();
 
@@ -29,30 +67,24 @@ fn parse_rocks(line: &str) -> anyhow::Result<Vec<Point>> {
 }
 
 fn parse_input(test_input: &str) -> anyhow::Result<Problem> {
+    let x_offset = 450;
     let lines = test_input.lines().collect::<Vec<_>>();
 
-    let rocks: anyhow::Result<Vec<_>> = lines.iter().map(|line| parse_rocks(line)).collect();
+    let rocks: anyhow::Result<Vec<_>> = lines
+        .iter()
+        .map(|line| parse_rocks(line, x_offset))
+        .collect();
     let rocks = rocks?;
-    
+
     // determine dimensions and create grid
-    let max_x = rocks
-        .iter()
-        .flatten()
-        .map(|x| x.0)
-        .max()
-        .ok_anyhow()?;
-    let max_y = rocks
-        .iter()
-        .flatten()
-        .map(|x| x.0)
-        .max()
-        .ok_anyhow()?;
+    let max_x = rocks.iter().flatten().map(|p| p.0).max().ok_anyhow()?;
+    let max_y = rocks.iter().flatten().map(|p| p.1).max().ok_anyhow()?;
     let mut grid = Grid::new(max_x as usize + 1, max_y as usize + 1, Blank);
 
     // populate grid with the rocks
     for rock in rocks {
         for pair in rock.windows(2) {
-            if let [a,b] = pair {
+            if let [a, b] = pair {
                 let dir = (*b - *a).signum();
                 let mut cur = *a;
                 while cur != *b {
@@ -64,11 +96,22 @@ fn parse_input(test_input: &str) -> anyhow::Result<Problem> {
         }
     }
 
-    let sand_origin = Point(500,0);
-    Ok(Problem{ 
-        grid,
-        sand_origin
-    })
+    let sand_origin = Point(500 - x_offset, 0);
+    Ok(Problem { grid, sand_origin })
+}
+
+fn part1(problem: &mut Problem) -> anyhow::Result<i32> {
+    let mut came_to_rest = 0;
+    while let Some(resting_location) = problem.drop_sand() {
+        let entry = problem.grid.get_mut(&resting_location).ok_anyhow()?;
+        *entry = Sand;
+        came_to_rest += 1;
+
+        println!("At rest: {came_to_rest}");
+        println!("{}", problem.grid);
+    }
+
+    Ok(came_to_rest)
 }
 
 fn main() {
@@ -87,6 +130,15 @@ mod tests {
 
     #[test]
     fn parse_inputs_succeeds() {
-        parse_input(TEST_INPUT).unwrap();
+        let problem = parse_input(TEST_INPUT).unwrap();
+        println!("{}", problem.grid);
+    }
+
+    #[test]
+    fn part1_correct() {
+        let mut problem = parse_input(TEST_INPUT).unwrap();
+        let res = part1(&mut problem).unwrap();
+        println!("{}", problem.grid);
+        assert_eq!(res, 24);
     }
 }

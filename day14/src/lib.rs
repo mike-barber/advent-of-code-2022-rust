@@ -1,4 +1,7 @@
-use std::ops::{Add, Sub};
+use std::{
+    fmt::Display,
+    ops::{Add, Sub},
+};
 
 #[derive(Debug, Clone, Copy, Default, Hash, Eq, PartialEq)]
 pub struct Point(pub isize, pub isize);
@@ -22,8 +25,6 @@ impl Point {
     }
 }
 
-
-
 #[derive(Debug, Clone, Copy)]
 pub enum Dir {
     U,
@@ -42,7 +43,7 @@ impl From<Dir> for Point {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Grid<T> {
     values: Vec<T>,
     width: usize,
@@ -53,7 +54,7 @@ impl<T: Clone> Grid<T> {
         Grid {
             width,
             height,
-            values: vec![fill_value; 0],
+            values: vec![fill_value; width * height],
         }
     }
 }
@@ -80,6 +81,18 @@ impl<T> Grid<T> {
         (0..self.width as isize).contains(&point.0) && (0..self.height as isize).contains(&point.1)
     }
 }
+impl<T: Display> Display for Grid<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for y in 0..self.height {
+            for x in 0..self.width {
+                let element = self.get(&Point(x as isize, y as isize)).unwrap();
+                write!(f, "{}", element)?;
+            }
+            writeln!(f)?;
+        }
+        Ok(())
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum GridSquare {
@@ -87,9 +100,19 @@ pub enum GridSquare {
     Rock,
     Sand,
 }
-
-
-
+impl Display for GridSquare {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                GridSquare::Blank => ".",
+                GridSquare::Rock => "#",
+                GridSquare::Sand => "o",
+            }
+        )
+    }
+}
 
 // TODO: put this in a common location
 pub trait OptionAnyhow<T> {
