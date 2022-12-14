@@ -1,15 +1,5 @@
 use anyhow::{anyhow, bail};
 use regex::Regex;
-use std::{fs::File, io::Read};
-
-fn read_file(file_name: &str) -> String {
-    let mut contents = String::new();
-    File::open(file_name)
-        .unwrap()
-        .read_to_string(&mut contents)
-        .unwrap();
-    contents
-}
 
 #[derive(Debug, Copy, Clone)]
 enum Operation {
@@ -175,7 +165,7 @@ fn part2(inputs: &str) -> anyhow::Result<usize> {
 }
 
 fn main() -> anyhow::Result<()> {
-    let inputs = read_file("input.txt");
+    let inputs = common::read_file("input.txt")?;
 
     println!("part1 result: {}", part1(&inputs)?);
     println!("part2 result: {}", part2(&inputs)?);

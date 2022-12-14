@@ -1,7 +1,5 @@
 use std::{
     collections::HashMap,
-    fs::File,
-    io::Read,
     ops::{Add, Sub},
 };
 
@@ -69,15 +67,6 @@ struct Problem {
     start: Point,
     destination: Point,
     grid: Grid<i32>,
-}
-
-fn read_file(file_name: &str) -> String {
-    let mut contents = String::new();
-    File::open(file_name)
-        .unwrap()
-        .read_to_string(&mut contents)
-        .unwrap();
-    contents
 }
 
 fn parse_input(inputs: &str) -> anyhow::Result<Problem> {
@@ -226,7 +215,7 @@ fn part2(problem: &Problem) -> usize {
 }
 
 fn main() -> anyhow::Result<()> {
-    let inputs = read_file("input.txt");
+    let inputs = common::read_file("input.txt")?;
     let problem = parse_input(&inputs)?;
 
     let res1 = part1(&problem).unwrap();

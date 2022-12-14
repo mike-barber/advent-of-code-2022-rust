@@ -113,13 +113,3 @@ impl Display for GridSquare {
         )
     }
 }
-
-// TODO: put this in a common location
-pub trait OptionAnyhow<T> {
-    fn ok_anyhow(self) -> anyhow::Result<T>;
-}
-impl<T> OptionAnyhow<T> for Option<T> {
-    fn ok_anyhow(self) -> anyhow::Result<T> {
-        self.ok_or_else(|| anyhow::anyhow!("expected Some value"))
-    }
-}

@@ -1,12 +1,7 @@
-use std::{cmp::Ordering, fs::File, io::Read};
+use std::cmp::Ordering;
 
+use common::*;
 use day13::*;
-
-fn read_file(file_name: &str) -> anyhow::Result<String> {
-    let mut contents = String::new();
-    File::open(file_name)?.read_to_string(&mut contents)?;
-    Ok(contents)
-}
 
 fn parse_input(inputs: &str) -> anyhow::Result<Problem> {
     let lines: Vec<_> = inputs.lines().collect();

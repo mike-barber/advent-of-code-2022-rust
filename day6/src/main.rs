@@ -1,14 +1,3 @@
-use std::{fs::File, io::Read};
-
-fn read_file(file_name: &str) -> String {
-    let mut contents = String::new();
-    File::open(file_name)
-        .unwrap()
-        .read_to_string(&mut contents)
-        .unwrap();
-    contents
-}
-
 // This is quite inefficient: O(N^2) on the size
 // of the slice. The problem is so small that a
 // more complex algorithm won't yield any benefit.
@@ -41,14 +30,16 @@ fn part2(input: &str) -> usize {
     find_marker(input, 14)
 }
 
-fn main() {
-    let contents = read_file("input1.txt");
+fn main() -> anyhow::Result<()> {
+    let contents = common::read_file("input1.txt")?;
 
     let part1_solution = part1(&contents);
     println!("day6 / part1: {part1_solution}");
 
     let part2_solution = part2(&contents);
     println!("day6 / part2: {part2_solution}");
+
+    Ok(())
 }
 
 #[cfg(test)]

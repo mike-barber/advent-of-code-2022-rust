@@ -1,5 +1,4 @@
 use anyhow::{anyhow, bail};
-use std::{fs::File, io::Read};
 use strum::EnumString;
 
 #[derive(Debug, Clone, Copy, EnumString)]
@@ -89,15 +88,6 @@ fn part2(instructions: &[Instruction]) -> Vec<String> {
         .collect()
 }
 
-fn read_file(file_name: &str) -> String {
-    let mut contents = String::new();
-    File::open(file_name)
-        .unwrap()
-        .read_to_string(&mut contents)
-        .unwrap();
-    contents
-}
-
 fn parse_input(inputs: &str) -> anyhow::Result<Vec<Instruction>> {
     let mut instructions = vec![];
     for line in inputs.lines() {
@@ -118,7 +108,7 @@ fn parse_input(inputs: &str) -> anyhow::Result<Vec<Instruction>> {
 }
 
 fn main() -> anyhow::Result<()> {
-    let instructions = parse_input(&read_file("input.txt"))?;
+    let instructions = parse_input(&common::read_file("input.txt")?)?;
 
     let part1_res = part1(&instructions);
     println!("part 1 result = {part1_res}");

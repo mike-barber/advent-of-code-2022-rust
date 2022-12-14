@@ -24,10 +24,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
+name = "common"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+]
+
+[[package]]
 name = "day1"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "common",
 ]
 
 [[package]]
@@ -35,6 +43,7 @@ name = "day10"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "common",
  "indoc",
  "strum",
 ]
@@ -44,6 +53,7 @@ name = "day11"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "common",
  "indoc",
  "regex",
 ]
@@ -53,6 +63,7 @@ name = "day12"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "common",
  "indoc",
  "priority-queue",
  "strum",
@@ -63,6 +74,7 @@ name = "day13"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "common",
  "indoc",
  "nom",
 ]
@@ -72,6 +84,7 @@ name = "day14"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "common",
  "indoc",
 ]
 
@@ -80,6 +93,7 @@ name = "day2"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "common",
  "indoc",
  "strum",
 ]
@@ -89,6 +103,7 @@ name = "day3"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "common",
  "indoc",
 ]
 
@@ -96,6 +111,8 @@ dependencies = [
 name = "day4"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "common",
  "indoc",
 ]
 
@@ -103,6 +120,8 @@ dependencies = [
 name = "day5"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "common",
  "indoc",
  "regex",
 ]
@@ -110,11 +129,17 @@ dependencies = [
 [[package]]
 name = "day6"
 version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "common",
+]
 
 [[package]]
 name = "day7"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "common",
  "indoc",
  "regex",
 ]
@@ -124,6 +149,7 @@ name = "day8"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "common",
  "indoc",
 ]
 
@@ -132,6 +158,7 @@ name = "day9"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "common",
  "indoc",
  "strum",
 ]

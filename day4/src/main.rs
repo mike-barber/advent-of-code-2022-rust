@@ -1,4 +1,6 @@
-use std::{fs::File, io::Read, ops::RangeInclusive};
+use std::ops::RangeInclusive;
+
+use common::read_file;
 
 type Range = RangeInclusive<i32>;
 
@@ -10,15 +12,6 @@ fn parse_range(s: &str) -> Range {
     let start = iter.next().unwrap().parse().unwrap();
     let end = iter.next().unwrap().parse().unwrap();
     Range::new(start, end)
-}
-
-fn read_file(file_name: &str) -> String {
-    let mut contents = String::new();
-    File::open(file_name)
-        .unwrap()
-        .read_to_string(&mut contents)
-        .unwrap();
-    contents
 }
 
 fn parse_input(input: &str) -> Vec<AssignmentPair> {
@@ -56,8 +49,8 @@ fn part2(pairs: &[AssignmentPair]) -> usize {
     pairs.iter().filter(|p| is_any_overlap(p)).count()
 }
 
-fn main() {
-    let contents = read_file("input1.txt");
+fn main() -> anyhow::Result<()> {
+    let contents = read_file("input1.txt")?;
     let input = parse_input(&contents);
 
     let part1_solution = part1(&input);
@@ -65,6 +58,8 @@ fn main() {
 
     let part2_solution = part2(&input);
     println!("day4 / part2: {part2_solution}");
+
+    Ok(())
 }
 
 #[cfg(test)]

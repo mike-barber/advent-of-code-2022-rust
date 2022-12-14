@@ -1,5 +1,5 @@
 use regex::Regex;
-use std::{fs::File, io::Read, iter};
+use std::iter;
 use Terminal::*;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -47,15 +47,6 @@ impl Dir {
         let self_size: usize = self.files.iter().map(|f| f.1).sum();
         sub_dir_size + self_size
     }
-}
-
-fn read_file(file_name: &str) -> String {
-    let mut contents = String::new();
-    File::open(file_name)
-        .unwrap()
-        .read_to_string(&mut contents)
-        .unwrap();
-    contents
 }
 
 fn parse_input(input: &str) -> Vec<Terminal> {
@@ -154,14 +145,16 @@ fn part2(mut input_iter: impl Iterator<Item = Terminal>) -> usize {
     min_size_larger_than(&root_dir, minimum_amount_to_free).unwrap()
 }
 
-fn main() {
-    let entries = parse_input(&read_file("input.txt"));
+fn main() -> anyhow::Result<()> {
+    let entries = parse_input(&common::read_file("input.txt")?);
 
     let part1_res = part1(entries.iter().cloned());
     println!("part 1 result = {part1_res}");
 
     let part2_res = part2(entries.iter().cloned());
     println!("part 2 result = {part2_res}");
+
+    Ok(())
 }
 
 #[cfg(test)]

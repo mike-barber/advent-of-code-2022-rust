@@ -1,5 +1,4 @@
 use regex::Regex;
-use std::{fs::File, io::Read};
 
 type Stack = Vec<char>;
 
@@ -8,15 +7,6 @@ struct Instruction {
     count: usize,
     source: usize,
     dest: usize,
-}
-
-fn read_file(file_name: &str) -> String {
-    let mut contents = String::new();
-    File::open(file_name)
-        .unwrap()
-        .read_to_string(&mut contents)
-        .unwrap();
-    contents
 }
 
 fn parse_input(input: &str) -> (Vec<Stack>, Vec<Instruction>) {
@@ -120,14 +110,16 @@ fn part2(input: &str) -> String {
     stacks.iter().map(|st| st.last().unwrap()).collect()
 }
 
-fn main() {
-    let contents = read_file("input1.txt");
+fn main() -> anyhow::Result<()>{
+    let contents = common::read_file("input1.txt")?;
 
     let part1_solution = part1(&contents);
     println!("day5 / part1: {part1_solution}");
 
     let part2_solution = part2(&contents);
     println!("day5 / part2: {part2_solution}");
+
+    Ok(())
 }
 
 #[cfg(test)]

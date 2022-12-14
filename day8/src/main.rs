@@ -1,5 +1,4 @@
 use anyhow::bail;
-use std::{fs::File, io::Read};
 
 #[derive(Debug)]
 struct Grid {
@@ -102,15 +101,6 @@ impl TryFrom<&[&str]> for Grid {
     }
 }
 
-fn read_file(file_name: &str) -> String {
-    let mut contents = String::new();
-    File::open(file_name)
-        .unwrap()
-        .read_to_string(&mut contents)
-        .unwrap();
-    contents
-}
-
 fn parse_input(input: &str) -> anyhow::Result<Grid> {
     let lines = input.lines().collect::<Vec<_>>();
     Grid::try_from(lines.as_slice())
@@ -139,7 +129,7 @@ fn part2(grid: &Grid) -> usize {
 }
 
 fn main() -> anyhow::Result<()> {
-    let grid = parse_input(&read_file("input.txt"))?;
+    let grid = parse_input(&common::read_file("input.txt")?)?;
 
     let part1_res = part1(&grid);
     println!("part 1 result = {part1_res}");

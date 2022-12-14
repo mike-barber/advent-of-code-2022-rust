@@ -1,9 +1,7 @@
 use anyhow::anyhow;
 use std::{
     collections::HashSet,
-    fs::File,
     hash::Hash,
-    io::Read,
     ops::{Add, Sub},
 };
 use strum::EnumString;
@@ -123,21 +121,12 @@ fn part2(instructions: &[Instruction]) -> usize {
     tail_position_count(instructions, 10)
 }
 
-fn read_file(file_name: &str) -> String {
-    let mut contents = String::new();
-    File::open(file_name)
-        .unwrap()
-        .read_to_string(&mut contents)
-        .unwrap();
-    contents
-}
-
 fn parse_input(inputs: &str) -> anyhow::Result<Vec<Instruction>> {
     inputs.lines().map(Instruction::try_from).collect()
 }
 
 fn main() -> anyhow::Result<()> {
-    let instructions = parse_input(&read_file("input.txt"))?;
+    let instructions = parse_input(&common::read_file("input.txt")?)?;
 
     let part1_res = part1(&instructions);
     println!("part 1 result = {part1_res}");

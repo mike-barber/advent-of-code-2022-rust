@@ -1,5 +1,4 @@
-use std::{fs::File, io::Read};
-
+use common::*;
 use day14::GridSquare::*;
 use day14::*;
 
@@ -52,12 +51,6 @@ impl Problem {
             return Some(cur);
         }
     }
-}
-
-fn read_file(file_name: &str) -> anyhow::Result<String> {
-    let mut contents = String::new();
-    File::open(file_name)?.read_to_string(&mut contents)?;
-    Ok(contents)
 }
 
 fn parse_rocks(line: &str, x_offset: isize) -> anyhow::Result<Vec<Point>> {
