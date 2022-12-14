@@ -88,10 +88,10 @@ fn parse_input(test_input: &str) -> anyhow::Result<Problem> {
                 let dir = (*b - *a).signum();
                 let mut cur = *a;
                 while cur != *b {
-                    let entry = grid.get_mut(&cur).ok_anyhow()?;
-                    *entry = Rock;
+                    *grid.get_mut(&cur).ok_anyhow()? = Rock;
                     cur = cur + dir;
                 }
+                *grid.get_mut(&cur).ok_anyhow()? = Rock;
             }
         }
     }
@@ -107,15 +107,21 @@ fn part1(problem: &mut Problem) -> anyhow::Result<i32> {
         *entry = Sand;
         came_to_rest += 1;
 
-        println!("At rest: {came_to_rest}");
-        println!("{}", problem.grid);
+        // println!("At rest: {came_to_rest}");
+        // println!("{}", problem.grid);
     }
 
     Ok(came_to_rest)
 }
 
-fn main() {
-    println!("Hello, world!");
+fn main() -> anyhow::Result<()> {
+    let problem = parse_input(&read_file("input.txt")?)?;
+
+    let mut problem_part1 = problem.clone();
+    let res_part1 = part1(&mut problem_part1)?;
+    println!("part 1 result: {res_part1}");
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -130,15 +136,14 @@ mod tests {
 
     #[test]
     fn parse_inputs_succeeds() {
-        let problem = parse_input(TEST_INPUT).unwrap();
-        println!("{}", problem.grid);
+        parse_input(TEST_INPUT).unwrap();
     }
 
     #[test]
     fn part1_correct() {
         let mut problem = parse_input(TEST_INPUT).unwrap();
         let res = part1(&mut problem).unwrap();
-        println!("{}", problem.grid);
+        // println!("{}", problem.grid);
         assert_eq!(res, 24);
     }
 }
