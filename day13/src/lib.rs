@@ -2,18 +2,23 @@ use std::cmp::Ordering;
 
 pub mod parser;
 
-#[derive(Debug, Clone, PartialEq, Ord, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Value {
     Literal(i32),
     List(Vec<Value>),
 }
 impl PartialOrd for Value {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+impl Ord for Value {
+    fn cmp(&self, other: &Self) -> Ordering {
         match (self, other) {
-            (Value::Literal(l), Value::Literal(r)) => l.partial_cmp(r),
-            (Value::Literal(l), Value::List(r)) => partial_cmp_list(&singleton_list(*l), r),
-            (Value::List(l), Value::Literal(r)) => partial_cmp_list(l, &singleton_list(*r)),
-            (Value::List(l), Value::List(r)) => partial_cmp_list(l, r),
+            (Value::Literal(l), Value::Literal(r)) => l.cmp(r),
+            (Value::Literal(l), Value::List(r)) => cmp_list(&singleton_list(*l), r),
+            (Value::List(l), Value::Literal(r)) => cmp_list(l, &singleton_list(*r)),
+            (Value::List(l), Value::List(r)) => cmp_list(l, r),
         }
     }
 }
@@ -28,17 +33,17 @@ impl From<Vec<Value>> for Value {
     }
 }
 
-fn partial_cmp_list(left: &[Value], right: &[Value]) -> Option<std::cmp::Ordering> {
+fn cmp_list(left: &[Value], right: &[Value]) -> Ordering {
     // check common items
     for (l, r) in std::iter::zip(left, right) {
-        let cmp = l.partial_cmp(r).unwrap();
+        let cmp = l.cmp(r);
         if cmp != Ordering::Equal {
-            return Some(cmp);
+            return cmp;
         }
     }
 
     // run out of common items; check length
-    left.len().partial_cmp(&right.len())
+    left.len().cmp(&right.len())
 }
 
 fn singleton_list(literal: i32) -> Vec<Value> {

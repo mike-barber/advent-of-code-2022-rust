@@ -9,7 +9,7 @@ fn parse_input(inputs: &str) -> anyhow::Result<Problem> {
 
     let mut pairs = vec![];
     for g in groups {
-        let v1 = parser::parse(g.get(0).ok_anyhow()?)?;
+        let v1 = parser::parse(g.first().ok_anyhow()?)?;
         let v2 = parser::parse(g.get(1).ok_anyhow()?)?;
         pairs.push(Pair(v1, v2))
     }
