@@ -94,7 +94,7 @@ impl<T: Display> Display for Grid<T> {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GridSquare {
     Blank,
     Rock,
