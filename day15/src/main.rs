@@ -7,7 +7,7 @@ use std::{
 use common::OptionAnyhow;
 use regex::Regex;
 
-#[derive(Debug, Clone, Copy, Default, Hash, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Default, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Point {
     pub x: i64,
     pub y: i64,
@@ -51,7 +51,7 @@ struct Measurement {
     distance: i64,
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd, Debug)]
 struct Range(i64, i64);
 impl Range {
     fn try_merge(&self, other: Range) -> Option<Range> {
@@ -72,12 +72,12 @@ impl Range {
         Range(left, right)
     }
 
-    fn width(&self) -> i64 {
-        self.1 - self.0
+    fn width_inclusive(&self) -> i64 {
+        self.1 - self.0 + 1
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 struct Cover(Vec<Range>);
 
 impl Cover {
@@ -192,20 +192,39 @@ fn part1_alt(measurements: &[Measurement], reference_row: i64) -> usize {
             let range = Range::new(x - dx, x + dx);
             line_covered.push_range(range);
         }
+        println!("{line_covered:?}");
     }
 
     // exclude beacons on this line
     let mut exclude_count = 0;
-    for m in measurements.iter().filter(|m| m.beacon.y == reference_row) {
+    let mut line_beacons: Vec<_> = measurements
+        .iter()
+        .filter_map(|m| {
+            if m.beacon.y == reference_row {
+                Some(m.beacon.x)
+            } else {
+                None
+            }
+        })
+        .collect();
+    line_beacons.sort_unstable();
+    line_beacons.dedup();
+
+    for beacon_x in &line_beacons {
         for range in &line_covered.0 {
-            if range.contains(m.beacon.x) {
+            if range.contains(*beacon_x) {
                 exclude_count += 1;
             }
         }
     }
 
     // total cover - beacon
-    line_covered.0.iter().map(|r| r.width() as usize).sum::<usize>() - exclude_count
+    line_covered
+        .0
+        .iter()
+        .map(|r| r.width_inclusive() as usize)
+        .sum::<usize>()
+        - exclude_count
 }
 
 fn main() -> anyhow::Result<()> {
