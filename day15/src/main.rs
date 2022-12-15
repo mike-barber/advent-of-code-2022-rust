@@ -106,7 +106,8 @@ impl Cover {
     }
 
     fn merge_ranges(&mut self) {
-        // keep merging until we have nothing left to merge
+        // keep merging until we have nothing left to merge; it's a bit
+        // messy, but does what it needs to.
         let ranges = &mut self.0;
         'iterations: loop {
             for i in 0..ranges.len() - 1 {
