@@ -127,7 +127,7 @@ impl Cover {
         loop {
             let mut merge_occurred = false;
             for i in 0..ranges.len() - 1 {
-                for j in 1..ranges.len() {
+                for j in i + 1..ranges.len() {
                     if let Some(merge) = ranges[i].try_merge(ranges[j]) {
                         ranges[i] = merge;
                         ranges[j] = merge;
@@ -289,10 +289,10 @@ fn part2(measurements: &[Measurement], min_coord: i64, max_cooord: i64) -> Optio
 }
 
 fn main() -> anyhow::Result<()> {
-    let input = parse_input(&common::read_file("input.txt")?)?;
+    let input = parse_input(&common::read_file("day15/input.txt")?)?;
 
     println!("part1 result: {}", part1(&input, 2000000));
-    //println!("part1 alt result: {}", part1_alt(&input, 2000000));
+    println!("part1 alt result: {}", part1_alt(&input, 2000000));
 
     println!("part2 result: {}", part2(&input, 0, 4000000).ok_anyhow()?);
 
