@@ -1,6 +1,7 @@
 use std::{
     collections::HashSet,
-    ops::{Add, Sub},
+    default,
+    ops::{Add, RangeInclusive, Sub},
 };
 
 use common::OptionAnyhow;
@@ -48,6 +49,80 @@ struct Measurement {
     sensor: Point,
     beacon: Point,
     distance: i64,
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
+struct Range(i64, i64);
+impl Range {
+    fn try_merge(&self, other: Range) -> Option<Range> {
+        let left = self.0 - 1;
+        let right = self.0 + 1;
+        if other.0 <= right || other.1 >= left {
+            Some(Range(self.0.min(other.0), self.1.max(other.1)))
+        } else {
+            None
+        }
+    }
+
+    fn contains(&self, value: i64) -> bool {
+        value >= self.0 && value <= self.1
+    }
+
+    fn new(left: i64, right: i64) -> Range {
+        Range(left, right)
+    }
+
+    fn width(&self) -> i64 {
+        self.1 - self.0
+    }
+}
+
+#[derive(Default)]
+struct Cover(Vec<Range>);
+
+impl Cover {
+    fn push_range(&mut self, range: Range) {
+        let ranges = &mut self.0;
+
+        // merge with any existing ranges
+        let mut already_merged = false;
+        for r in ranges.iter_mut() {
+            if let Some(merged) = r.try_merge(range) {
+                *r = merged;
+                already_merged = true;
+                break;
+            }
+        }
+
+        // early exit if we didn't merge with any other range
+        if !already_merged {
+            ranges.push(range);
+            return;
+        }
+
+        // if we've merged, then we need to consider further merges
+        loop {
+            let mut merge_occurred = false;
+            for i in 0..ranges.len() - 1 {
+                for j in 1..ranges.len() {
+                    if let Some(merge) = ranges[i].try_merge(ranges[j]) {
+                        ranges[i] = merge;
+                        ranges[j] = merge;
+                        merge_occurred = true;
+                    }
+                }
+            }
+
+            // we've merged everything we can
+            if !merge_occurred {
+                break;
+            }
+        }
+
+        // finally, remove duplicates (although this could be more efficient)
+        ranges.sort_unstable();
+        ranges.dedup();
+    }
 }
 
 fn parse_input(input: &str) -> anyhow::Result<Vec<Measurement>> {
@@ -103,14 +178,41 @@ fn part1(measurements: &[Measurement], reference_row: i64) -> usize {
     // let mut coords: Vec<_> = line_covered.iter().collect();
     // coords.sort();
     // println!("coords: {coords:?}");
-
     line_covered.len()
+}
+
+fn part1_alt(measurements: &[Measurement], reference_row: i64) -> usize {
+    let mut line_covered = Cover::default();
+    for m in measurements {
+        let x = m.sensor.x;
+        let y = m.sensor.y;
+        let dist_y = (y - reference_row).abs();
+        let dx = m.distance - dist_y;
+        if dx >= 0 {
+            let range = Range::new(x - dx, x + dx);
+            line_covered.push_range(range);
+        }
+    }
+
+    // exclude beacons on this line
+    let mut exclude_count = 0;
+    for m in measurements.iter().filter(|m| m.beacon.y == reference_row) {
+        for range in &line_covered.0 {
+            if range.contains(m.beacon.x) {
+                exclude_count += 1;
+            }
+        }
+    }
+
+    // total cover - beacon
+    line_covered.0.iter().map(|r| r.width() as usize).sum::<usize>() - exclude_count
 }
 
 fn main() -> anyhow::Result<()> {
     let input = parse_input(&common::read_file("input.txt")?)?;
 
     println!("part1 result: {}", part1(&input, 2000000));
+    println!("part1 alt result: {}", part1_alt(&input, 2000000));
 
     Ok(())
 }
@@ -147,6 +249,13 @@ mod tests {
     fn part1_correct() {
         let input = parse_input(TEST_INPUT).unwrap();
         let res = part1(&input, 10);
+        assert_eq!(res, 26);
+    }
+
+    #[test]
+    fn part1_alt_correct() {
+        let input = parse_input(TEST_INPUT).unwrap();
+        let res = part1_alt(&input, 10);
         assert_eq!(res, 26);
     }
 }
