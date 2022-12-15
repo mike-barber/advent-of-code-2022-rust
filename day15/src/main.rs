@@ -270,7 +270,9 @@ fn line_coverage(measurements: &[Measurement], reference_row: i64) -> Cover {
 fn part2(measurements: &[Measurement], min_coord: i64, max_cooord: i64) -> Option<i64> {
     for reference_row in min_coord..=max_cooord {
         let line_covered = line_coverage(measurements, reference_row);
-        //println!("y = {reference_row} -- {line_covered:?}");
+        if reference_row % 1000 == 0 {
+            println!("y = {reference_row} -- {line_covered:?}");
+        }
 
         if let [a, b] = line_covered.0.as_slice() {
             if a.1 + 1 == b.0 - 1 {
@@ -290,7 +292,7 @@ fn main() -> anyhow::Result<()> {
     let input = parse_input(&common::read_file("input.txt")?)?;
 
     println!("part1 result: {}", part1(&input, 2000000));
-    println!("part1 alt result: {}", part1_alt(&input, 2000000));
+    //println!("part1 alt result: {}", part1_alt(&input, 2000000));
 
     println!("part2 result: {}", part2(&input, 0, 4000000).ok_anyhow()?);
 
