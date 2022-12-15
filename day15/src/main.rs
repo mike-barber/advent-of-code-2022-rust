@@ -1,11 +1,7 @@
-use std::{
-    collections::HashSet,
-    default,
-    ops::{Add, RangeInclusive, Sub},
-};
+use regex::Regex;
+use std::ops::{Add, Sub};
 
 use common::OptionAnyhow;
-use regex::Regex;
 
 #[derive(Debug, Clone, Copy, Default, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Point {
@@ -55,36 +51,22 @@ struct Measurement {
 struct Range(i64, i64);
 impl Range {
     fn try_merge(&self, other: Range) -> Option<Range> {
-        let mut merge = false;
-
-        // adjacent left
-        if self.0 - 1 == other.1 {
-            merge = true;
-        }
-
-        // adjacent right
-        if self.1 + 1 == other.0 {
-            merge = true;
-        }
-
-        // contained
-        if self.contains(other.0)
+        // partially contained
+        let mut merge = self.contains(other.0)
             || self.contains(other.1)
             || other.contains(self.0)
-            || other.contains(self.1)
-        {
-            merge = true;
-        }
+            || other.contains(self.1);
 
-        if merge {
-            Some(Range(self.0.min(other.0), self.1.max(other.1)))
-        } else {
-            None
-        }
-    }
+        // adjacent left
+        merge = merge || self.0 - 1 == other.1;
 
-    fn expand1(&self) -> Self {
-        Range(self.0 - 1, self.1 + 1)
+        // adjacent right
+        merge = merge || self.1 + 1 == other.0;
+
+        match merge {
+            true => Some(Range(self.0.min(other.0), self.1.max(other.1))),
+            false => None,
+        }
     }
 
     fn contains(&self, value: i64) -> bool {
@@ -107,7 +89,7 @@ impl Cover {
     fn push_range(&mut self, range: Range) {
         let ranges = &mut self.0;
 
-        // merge with any existing ranges
+        // merge with an existing range if possible
         let mut already_merged = false;
         for r in ranges.iter_mut() {
             if let Some(merged) = r.try_merge(range) {
@@ -120,31 +102,25 @@ impl Cover {
         // early exit if we didn't merge with any other range
         if !already_merged {
             ranges.push(range);
-            return;
         }
+    }
 
-        // if we've merged, then we need to consider further merges
-        loop {
-            let mut merge_occurred = false;
+    fn merge_ranges(&mut self) {
+        // keep merging until we have nothing left to merge
+        let ranges = &mut self.0;
+        'iterations: loop {
             for i in 0..ranges.len() - 1 {
                 for j in i + 1..ranges.len() {
                     if let Some(merge) = ranges[i].try_merge(ranges[j]) {
                         ranges[i] = merge;
-                        ranges[j] = merge;
-                        merge_occurred = true;
+                        ranges.remove(j);
+                        continue 'iterations;
                     }
                 }
             }
-
-            // remove duplicates
-            ranges.sort_unstable();
-            ranges.dedup();
-
-            // we've merged everything we can
-            if !merge_occurred {
-                break;
-            }
+            break;
         }
+        ranges.sort_unstable();
     }
 }
 
@@ -177,34 +153,7 @@ fn parse_input(input: &str) -> anyhow::Result<Vec<Measurement>> {
         .collect()
 }
 
-fn part1(measurements: &[Measurement], reference_row: i64) -> usize {
-    let mut line_covered: HashSet<i64> = HashSet::new();
-    for m in measurements {
-        let x = m.sensor.x;
-        let y = m.sensor.y;
-        for dx in 0.. {
-            let dist = manhattan_length(dx, y - reference_row);
-            if dist > m.distance {
-                break;
-            } else {
-                line_covered.insert(x - dx);
-                line_covered.insert(x + dx);
-            }
-        }
-    }
-
-    // exclude beacons on this line
-    for m in measurements.iter().filter(|m| m.beacon.y == reference_row) {
-        line_covered.remove(&m.beacon.x);
-    }
-
-    // let mut coords: Vec<_> = line_covered.iter().collect();
-    // coords.sort();
-    // println!("coords: {coords:?}");
-    line_covered.len()
-}
-
-fn part1_alt(measurements: &[Measurement], reference_row: i64) -> usize {
+fn line_coverage(measurements: &[Measurement], reference_row: i64) -> Cover {
     let mut line_covered = Cover::default();
     for m in measurements {
         let x = m.sensor.x;
@@ -215,8 +164,14 @@ fn part1_alt(measurements: &[Measurement], reference_row: i64) -> usize {
             let range = Range::new(x - dx, x + dx);
             line_covered.push_range(range);
         }
-        println!("{line_covered:?}");
     }
+    line_covered.merge_ranges();
+    line_covered
+}
+
+fn part1(measurements: &[Measurement], reference_row: i64) -> usize {
+    // get coverage for this line
+    let line_covered = line_coverage(measurements, reference_row);
 
     // exclude beacons on this line
     let mut exclude_count = 0;
@@ -250,34 +205,12 @@ fn part1_alt(measurements: &[Measurement], reference_row: i64) -> usize {
         - exclude_count
 }
 
-fn line_coverage(measurements: &[Measurement], reference_row: i64) -> Cover {
-    let mut line_covered = Cover::default();
-    for m in measurements {
-        let x = m.sensor.x;
-        let y = m.sensor.y;
-        let dist_y = (y - reference_row).abs();
-        let dx = m.distance - dist_y;
-        if dx >= 0 {
-            let range = Range::new(x - dx, x + dx);
-            // println!("{line_covered:?} <- {range:?}");
-            line_covered.push_range(range);
-            // println!("{line_covered:?}");
-        }
-    }
-    line_covered
-}
-
 fn part2(measurements: &[Measurement], min_coord: i64, max_cooord: i64) -> Option<i64> {
     for reference_row in min_coord..=max_cooord {
         let line_covered = line_coverage(measurements, reference_row);
-        if reference_row % 1000 == 0 {
-            println!("y = {reference_row} -- {line_covered:?}");
-        }
-
         if let [a, b] = line_covered.0.as_slice() {
             if a.1 + 1 == b.0 - 1 {
                 let x = a.1 + 1;
-                //println!("found {x}");
                 if x >= min_coord && x <= max_cooord {
                     let value = 4000000 * x + reference_row;
                     return Some(value);
@@ -292,8 +225,6 @@ fn main() -> anyhow::Result<()> {
     let input = parse_input(&common::read_file("day15/input.txt")?)?;
 
     println!("part1 result: {}", part1(&input, 2000000));
-    println!("part1 alt result: {}", part1_alt(&input, 2000000));
-
     println!("part2 result: {}", part2(&input, 0, 4000000).ok_anyhow()?);
 
     Ok(())
@@ -328,16 +259,9 @@ mod tests {
     }
 
     #[test]
-    fn part1_correct() {
-        let measurements = parse_input(TEST_INPUT).unwrap();
-        let res = part1(&measurements, 10);
-        assert_eq!(res, 26);
-    }
-
-    #[test]
     fn part1_alt_correct() {
         let measurements = parse_input(TEST_INPUT).unwrap();
-        let res = part1_alt(&measurements, 10);
+        let res = part1(&measurements, 10);
         assert_eq!(res, 26);
     }
 

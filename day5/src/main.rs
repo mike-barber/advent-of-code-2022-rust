@@ -110,7 +110,7 @@ fn part2(input: &str) -> String {
     stacks.iter().map(|st| st.last().unwrap()).collect()
 }
 
-fn main() -> anyhow::Result<()>{
+fn main() -> anyhow::Result<()> {
     let contents = common::read_file("input1.txt")?;
 
     let part1_solution = part1(&contents);
