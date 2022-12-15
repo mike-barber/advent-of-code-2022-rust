@@ -55,13 +55,36 @@ struct Measurement {
 struct Range(i64, i64);
 impl Range {
     fn try_merge(&self, other: Range) -> Option<Range> {
-        let left = self.0 - 1;
-        let right = self.0 + 1;
-        if other.0 <= right || other.1 >= left {
+        let mut merge = false;
+
+        // adjacent left
+        if self.0 - 1 == other.1 {
+            merge = true;
+        }
+
+        // adjacent right
+        if self.1 + 1 == other.0 {
+            merge = true;
+        }
+
+        // contained
+        if self.contains(other.0)
+            || self.contains(other.1)
+            || other.contains(self.0)
+            || other.contains(self.1)
+        {
+            merge = true;
+        }
+
+        if merge {
             Some(Range(self.0.min(other.0), self.1.max(other.1)))
         } else {
             None
         }
+    }
+
+    fn expand1(&self) -> Self {
+        Range(self.0 - 1, self.1 + 1)
     }
 
     fn contains(&self, value: i64) -> bool {
@@ -113,15 +136,15 @@ impl Cover {
                 }
             }
 
+            // remove duplicates
+            ranges.sort_unstable();
+            ranges.dedup();
+
             // we've merged everything we can
             if !merge_occurred {
                 break;
             }
         }
-
-        // finally, remove duplicates (although this could be more efficient)
-        ranges.sort_unstable();
-        ranges.dedup();
     }
 }
 
@@ -227,11 +250,49 @@ fn part1_alt(measurements: &[Measurement], reference_row: i64) -> usize {
         - exclude_count
 }
 
+fn line_coverage(measurements: &[Measurement], reference_row: i64) -> Cover {
+    let mut line_covered = Cover::default();
+    for m in measurements {
+        let x = m.sensor.x;
+        let y = m.sensor.y;
+        let dist_y = (y - reference_row).abs();
+        let dx = m.distance - dist_y;
+        if dx >= 0 {
+            let range = Range::new(x - dx, x + dx);
+            // println!("{line_covered:?} <- {range:?}");
+            line_covered.push_range(range);
+            // println!("{line_covered:?}");
+        }
+    }
+    line_covered
+}
+
+fn part2(measurements: &[Measurement], min_coord: i64, max_cooord: i64) -> Option<i64> {
+    for reference_row in min_coord..=max_cooord {
+        let line_covered = line_coverage(measurements, reference_row);
+        //println!("y = {reference_row} -- {line_covered:?}");
+
+        if let [a, b] = line_covered.0.as_slice() {
+            if a.1 + 1 == b.0 - 1 {
+                let x = a.1 + 1;
+                //println!("found {x}");
+                if x >= min_coord && x <= max_cooord {
+                    let value = 4000000 * x + reference_row;
+                    return Some(value);
+                }
+            }
+        }
+    }
+    None
+}
+
 fn main() -> anyhow::Result<()> {
     let input = parse_input(&common::read_file("input.txt")?)?;
 
     println!("part1 result: {}", part1(&input, 2000000));
     println!("part1 alt result: {}", part1_alt(&input, 2000000));
+
+    println!("part2 result: {}", part2(&input, 0, 4000000).ok_anyhow()?);
 
     Ok(())
 }
@@ -260,21 +321,35 @@ mod tests {
 
     #[test]
     fn parse_inputs_succeeds() {
-        let input = parse_input(TEST_INPUT).unwrap();
-        println!("{input:?}");
+        let measurements = parse_input(TEST_INPUT).unwrap();
+        println!("{measurements:?}");
     }
 
     #[test]
     fn part1_correct() {
-        let input = parse_input(TEST_INPUT).unwrap();
-        let res = part1(&input, 10);
+        let measurements = parse_input(TEST_INPUT).unwrap();
+        let res = part1(&measurements, 10);
         assert_eq!(res, 26);
     }
 
     #[test]
     fn part1_alt_correct() {
-        let input = parse_input(TEST_INPUT).unwrap();
-        let res = part1_alt(&input, 10);
+        let measurements = parse_input(TEST_INPUT).unwrap();
+        let res = part1_alt(&measurements, 10);
         assert_eq!(res, 26);
+    }
+
+    #[test]
+    fn part2_correct() {
+        let measurements = parse_input(TEST_INPUT).unwrap();
+        let res = part2(&measurements, 0, 20).unwrap();
+        assert_eq!(res, 56000011);
+    }
+
+    #[test]
+    fn line_coverage_correct() {
+        let measurements = parse_input(TEST_INPUT).unwrap();
+        let coverage = line_coverage(&measurements, 11);
+        assert_eq!(coverage.0.len(), 2);
     }
 }
