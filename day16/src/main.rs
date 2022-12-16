@@ -2,10 +2,7 @@ use anyhow::bail;
 use arrayvec::ArrayVec;
 use itertools::iproduct;
 use regex::Regex;
-use std::{
-    collections::{HashMap, HashSet},
-    fmt::Display,
-};
+use std::{collections::HashMap, fmt::Display};
 
 use common::OptionAnyhow;
 
@@ -116,76 +113,89 @@ fn time_flow_from(valve_rate: i32, opened_minute: i32) -> i32 {
     valve_rate * total_minutes_open
 }
 
-fn option_max(a: Option<i32>, b: Option<i32>) -> Option<i32> {
-    match (a, b) {
-        (None, None) => None,
-        (None, Some(b)) => Some(b),
-        (Some(a), None) => Some(a),
-        (Some(a), Some(b)) => Some(a.max(b)),
-    }
-}
-
 // basic DFS
 fn explore_most_flow(
     problem: &Problem,
+    global_best_found: &mut i32,
     at: &Valve,
-    enabled: &HashSet<Code>,
+    remaining_potential: i32,
+    turned_on: &ArrayVec<Code, 20>,
     prior_node: Option<Code>,
     prior_time: i32,
     prior_flow: i32,
-) -> Option<i32> {
+) -> i32 {
     // we're at max time; nothing further we can do from here
     if prior_time == MAX_TIME {
-        return Some(prior_flow);
+        return prior_flow;
     }
 
     // everything turned on; nothing we can do from here
-    if enabled.len() == problem.num_valves_with_flow {
-        return Some(prior_flow);
+    if turned_on.len() == problem.num_valves_with_flow {
+        return prior_flow;
     }
 
     // two options at this valve
     // 1. skip over it, then consider move (by calling back to here)
     // 2. open valve then move on (if it has a non-zero flow rate)
-    let mut best = None;
-
-    // consider opening valve
-    if at.rate > 0 && !enabled.contains(&at.code) {
-        let mut now_enabled = enabled.clone();
-        now_enabled.insert(at.code);
-
+    for next_move in possible_moves(at, turned_on, prior_node) {
         let now_time = prior_time + 1;
-        let now_flow = prior_flow + time_flow_from(at.rate, now_time);
-        let sub_best = explore_most_flow(problem, at, &now_enabled, None, now_time, now_flow);
-        best = option_max(best, sub_best);
-    }
+        let mut now_remaining_potential = remaining_potential;
+        let mut now_at = at;
+        let mut now_flow = prior_flow;
+        let mut now_prior_node = None;
+        let mut now_enabled = turned_on.clone();
 
-    for next_code in at.connects_to.iter() {
-        // don't go straight back to previous node - skip it
-        if Some(*next_code) == prior_node {
+        match next_move {
+            Move::TurnOn => {
+                now_enabled.push(at.code);
+                now_flow += time_flow_from(at.rate, now_time);
+                now_remaining_potential -= at.rate;
+            }
+            Move::Code(c) => {
+                now_at = problem.valves.get(&c).unwrap();
+                now_prior_node = Some(at.code);
+            }
+        }
+
+        // DP part: skip expensive recursion if the remaining value at this point is below the current
+        // best estimate we've found. The value we realise from recursion is strictly less than this value.
+        let remaining_time_value = time_flow_from(now_remaining_potential, now_time);
+        let maximum_payoff = now_flow + remaining_time_value;
+        if maximum_payoff < *global_best_found {
             continue;
         }
 
-        // consider moving to next code
-        let now_time = prior_time + 1;
-        let next_valve = problem.valves.get(next_code).unwrap();
         let sub_best = explore_most_flow(
             problem,
-            next_valve,
-            enabled,
-            Some(at.code),
+            global_best_found,
+            now_at,
+            now_remaining_potential,
+            &now_enabled,
+            now_prior_node,
             now_time,
-            prior_flow,
+            now_flow,
         );
-        best = option_max(best, sub_best);
+
+        *global_best_found = sub_best.max(*global_best_found);
     }
 
-    best
+    *global_best_found
 }
 
-fn part1(problem: &Problem) -> Option<i32> {
+fn part1(problem: &Problem) -> i32 {
     let start = problem.valves.get(&problem.start).unwrap();
-    explore_most_flow(problem, start, &HashSet::default(), None, 0, 0)
+    let remaining_potential = problem.valves.values().map(|v| v.rate).sum();
+    let mut best = 0;
+    explore_most_flow(
+        problem,
+        &mut best,
+        start,
+        remaining_potential,
+        &ArrayVec::default(),
+        None,
+        0,
+        0,
+    )
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -336,7 +346,7 @@ fn main() -> anyhow::Result<()> {
 
     println!("Note: should NOT be 1854 - it is too high (from starting at wrong node)");
     println!("Note: should be 1741");
-    println!("part1 result: {}", part1(&problem).ok_anyhow()?);
+    println!("part1 result: {}", part1(&problem));
 
     println!("part2 result: {}", part2(&problem));
 
@@ -371,7 +381,7 @@ mod tests {
     #[test]
     fn part1_correct() {
         let problem = parse_input(TEST_INPUT).unwrap();
-        let res = part1(&problem).unwrap();
+        let res = part1(&problem);
         assert_eq!(res, 1651);
     }
 
