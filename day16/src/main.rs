@@ -191,11 +191,12 @@ fn main() -> anyhow::Result<()> {
     let problem = parse_input(&input_string)?;
     check_all_bidirectional(&problem)?;
    
-    for v in problem.valves.values() {
-        println!("{:?}", v);
-    }
+    // for v in problem.valves.values() {
+    //     println!("{:?}", v);
+    // }
 
-    println!("Note: should NOT be 1854 - it is too high!");
+    println!("Note: should NOT be 1854 - it is too high (from starting at wrong node)");
+    println!("Note: should be 1741");
     println!("part1 result: {}", part1(&problem).ok_anyhow()?);
 
     Ok(())
