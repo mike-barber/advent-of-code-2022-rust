@@ -154,9 +154,9 @@ fn explore_most_flow(
 
         // DP part: skip expensive recursion if the remaining value at this point is below the current
         // best estimate we've found. The value we realise from recursion is strictly less than this value.
-        let remaining_time_value = problem.time_flow_from(now_remaining_potential, now_time);
+        let remaining_time_value = problem.time_flow_from(now_remaining_potential, now_time + 1);
         let maximum_payoff = now_flow + remaining_time_value;
-        if maximum_payoff < *global_best_found {
+        if maximum_payoff <= *global_best_found {
             continue;
         }
 
@@ -293,7 +293,7 @@ fn explore_most_flow_dual(
 
         // DP part: skip expensive recursion if the remaining value at this point is below the current
         // best estimate we've found. The value we realise from recursion is strictly less than this value.
-        let remaining_time_value = problem.time_flow_from(now_remaining_potential, now_time);
+        let remaining_time_value = problem.time_flow_from(now_remaining_potential, now_time + 1);
         let maximum_payoff = now_flow + remaining_time_value;
         if maximum_payoff <= *global_best_found {
             continue;
