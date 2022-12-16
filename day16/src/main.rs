@@ -1,4 +1,6 @@
 use anyhow::bail;
+use arrayvec::ArrayVec;
+use itertools::{iproduct, Itertools};
 use regex::Regex;
 use std::{
     collections::{HashMap, HashSet},
@@ -146,7 +148,7 @@ fn explore_most_flow(
     // 1. skip over it, then consider move (by calling back to here)
     // 2. open valve then move on (if it has a non-zero flow rate)
     let mut best = None;
-    
+
     // consider opening valve
     if at.rate > 0 && !enabled.contains(&at.code) {
         let mut now_enabled = enabled.clone();
@@ -186,11 +188,128 @@ fn part1(problem: &Problem) -> Option<i32> {
     explore_most_flow(problem, start, &HashSet::default(), None, 0, 0)
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum Move {
+    TurnOn,
+    Code(Code),
+}
+
+fn possible_moves(
+    problem: &Problem,
+    at: &Valve,
+    enabled: &ArrayVec<Code, 20>,
+    prior_node: Option<Code>,
+) -> ArrayVec<Move, 5> {
+    let mut moves = ArrayVec::new();
+
+    if at.rate > 0 && !enabled.contains(&at.code) {
+        moves.push(Move::TurnOn);
+    }
+
+    for next_code in at.connects_to.iter() {
+        if Some(*next_code) == prior_node {
+            continue;
+        }
+        moves.push(Move::Code(*next_code));
+    }
+
+    moves
+}
+
+// Basic DFS with dual players
+fn explore_most_flow_dual(
+    problem: &Problem,
+    at: [&Valve; 2],
+    enabled: &ArrayVec<Code, 20>,
+    prior_node: [Option<Code>; 2],
+    prior_time: i32,
+    prior_flow: i32,
+) -> Option<i32> {
+    // we're at max time; nothing further we can do from here
+    if prior_time == MAX_TIME {
+        return Some(prior_flow);
+    }
+
+    // everything turned on; nothing we can do from here
+    if enabled.len() == problem.num_valves_with_flow {
+        return Some(prior_flow);
+    }
+
+    // two options at this valve
+    // 1. skip over it, then consider move (by calling back to here)
+    // 2. open valve then move on (if it has a non-zero flow rate)
+    let mut best = None;
+
+    let own_moves = possible_moves(problem, at[0], enabled, prior_node[0]);
+    let ele_moves = possible_moves(problem, at[1], enabled, prior_node[1]);
+
+    for (own, ele) in iproduct!(own_moves.iter(), ele_moves.iter().rev()) {
+        
+        // skip case where both turn on same valve
+        if at[0] == at[1] && own == &Move::TurnOn && ele == &Move::TurnOn {
+            println!("Skipping dual turn on at {:?} {:?}", at[0], at[1]);
+            continue;
+        }
+
+        let now_time = prior_time + 1;
+        let mut now_at = at;
+        let mut now_flow = prior_flow;
+        let mut now_prior_node = [None; 2];
+        let mut now_enabled = enabled.clone();
+
+        match own {
+            Move::TurnOn => {
+                now_enabled.push(at[0].code);
+                now_flow += time_flow_from(at[0], now_time)
+            }
+            Move::Code(c) => {
+                now_at[0] = problem.valves.get(c).unwrap();
+                now_prior_node[0] = Some(at[0].code);
+            }
+        }
+
+        match ele {
+            Move::TurnOn => {
+                now_enabled.push(at[1].code);
+                now_flow += time_flow_from(at[1], now_time)
+            }
+            Move::Code(c) => {
+                now_at[1] = problem.valves.get(c).unwrap();
+                now_prior_node[1] = Some(at[1].code);
+            }
+        }
+
+        let sub_best = explore_most_flow_dual(
+            problem,
+            now_at,
+            &now_enabled,
+            now_prior_node,
+            now_time,
+            now_flow,
+        );
+        best = option_max(best, sub_best);
+    }
+
+    best
+}
+
+fn part2(problem: &Problem) -> Option<i32> {
+    let start = problem.valves.get(&problem.start).unwrap();
+    explore_most_flow_dual(
+        problem,
+        [start, start],
+        &ArrayVec::default(),
+        [None, None],
+        0,
+        0,
+    )
+}
+
 fn main() -> anyhow::Result<()> {
     let input_string = common::read_file("day16/input.txt")?;
     let problem = parse_input(&input_string)?;
     check_all_bidirectional(&problem)?;
-   
+
     // for v in problem.valves.values() {
     //     println!("{:?}", v);
     // }
@@ -198,6 +317,8 @@ fn main() -> anyhow::Result<()> {
     println!("Note: should NOT be 1854 - it is too high (from starting at wrong node)");
     println!("Note: should be 1741");
     println!("part1 result: {}", part1(&problem).ok_anyhow()?);
+
+    println!("part2 result: {}", part2(&problem).ok_anyhow()?);
 
     Ok(())
 }
@@ -234,10 +355,10 @@ mod tests {
         assert_eq!(res, 1651);
     }
 
-    // #[test]
-    // fn part2_correct() {
-    //     let measurements = parse_input(TEST_INPUT).unwrap();
-    //     let res = part2(&measurements, 0, 20).unwrap();
-    //     assert_eq!(res, 56000011);
-    // }
+    #[test]
+    fn part2_correct() {
+        let problem = parse_input(TEST_INPUT).unwrap();
+        let res = part2(&problem).unwrap();
+        assert_eq!(res, 1707);
+    }
 }
