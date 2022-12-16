@@ -306,6 +306,10 @@ fn explore_most_flow_dual(
             now_flow,
         );
 
+        if sub_best > *global_best_found {
+            println!("new best: {sub_best}");
+        }
+
         *global_best_found = sub_best.max(*global_best_found);
     }
 
