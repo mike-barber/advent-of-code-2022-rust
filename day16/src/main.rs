@@ -1,13 +1,13 @@
 use anyhow::bail;
 use regex::Regex;
-use std::ops::{Add, Sub};
+use std::{ops::{Add, Sub}, collections::{HashSet, HashMap}};
 
 use common::OptionAnyhow;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct Code<'a>(&'a str);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct Valve<'a> {
     code: Code<'a>,
     rate: i32,
@@ -50,8 +50,65 @@ fn parse_input(input: &str) -> anyhow::Result<Vec<Valve>> {
         .collect()
 }
 
+const MAX_TIME: i32 = 30;
+
+fn total_flow(valve: &Valve, opened_minute: i32) -> i32 {
+    let total_minutes_open = MAX_TIME - opened_minute;
+    valve.rate * total_minutes_open
+}
+
+fn option_max(a: Option<i32>, b: Option<i32>) -> Option<i32> {
+    match (a,b) {
+        (None, None) => None,
+        (None, Some(b)) => Some(b),
+        (Some(a), None) => Some(a),
+        (Some(a), Some(b)) => Some(a.max(b))
+    }
+}
+
+// basic DFS
+fn explore_most_flow(valves: &HashMap<Code, &Valve>, at: &Valve, prior_seen: &Vec<Code>, prior_time: i32, prior_flow: i32) -> Option<i32> {
+
+    if prior_time == MAX_TIME {
+        return Some(prior_flow)
+    }
+
+    let mut seen = prior_seen.clone();
+    seen.push(at.code);
+
+    let mut best = None;
+    for next in at.connects_to.iter().filter(|v| !prior_seen.contains(*v)) {
+
+        let next_valve = valves.get(next).unwrap();
+
+        // consider opening valve
+        if at.rate > 0 && prior_time < MAX_TIME - 1{
+            let time = prior_time + 1;
+            let flow = prior_flow + total_flow(at, time);
+
+            if time < MAX_TIME {
+
+            }
+        }
+
+        // consider skipping opening valve and moving
+        if prior_time < MAX_TIME {
+            let time = prior_time + 1;
+            let flow = prior_flow;
+
+            let explored_flow = explore_most_flow(valves, next_valve, &seen, time, flow);
+            best = option_max(best, explored_flow);
+        } 
+    }
+
+    best
+}
+
+
 fn main() -> anyhow::Result<()> {
-    let input = parse_input(&common::read_file("day16/input.txt")?)?;
+    let input_string = common::read_file("day16/input.txt")?;
+    let input = parse_input(&input_string)?;
+    println!("{:#?}", input);
 
     // println!("part1 result: {}", part1(&input, 2000000));
     // println!("part2 result: {}", part2(&input, 0, 4000000).ok_anyhow()?);
