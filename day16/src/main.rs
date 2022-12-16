@@ -9,11 +9,16 @@ use common::OptionAnyhow;
 
 type AnyResult<T> = anyhow::Result<T>;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 struct Code([char; 2]);
-impl<'a> Display for Code {
+impl Display for Code {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}{}", self.0[0], self.0[1])
+    }
+}
+impl std::fmt::Debug for Code {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(&self, f)
     }
 }
 
@@ -44,7 +49,7 @@ fn parse_input(input: &str) -> AnyResult<Problem> {
         r#"Valve ([A-Z]+) has flow rate=(\d+); tunnel[s]? lead[s]? to valve[s]? ([A-Z, ]*)$"#,
     )?;
 
-    let mut first_code = None;
+    //let mut first_code = ;
 
     let valves: AnyResult<HashMap<Code, Valve>> = input
         .lines()
@@ -54,9 +59,9 @@ fn parse_input(input: &str) -> AnyResult<Problem> {
             let code = parse_code(cap.get(1).ok_anyhow()?.as_str())?;
             let rate = cap.get(2).ok_anyhow()?.as_str().parse()?;
 
-            if first_code.is_none() {
-                first_code = Some(code);
-            }
+            // if first_code.is_none() {
+            //     first_code = Some(code);
+            // }
 
             let connects_to: Result<Vec<_>, _> = cap
                 .get(3)
@@ -83,7 +88,7 @@ fn parse_input(input: &str) -> AnyResult<Problem> {
 
     Ok(Problem {
         valves: valves,
-        start: first_code.ok_anyhow()?,
+        start: parse_code("AA")?,
         num_valves_with_flow,
     })
 }
@@ -183,12 +188,15 @@ fn part1(problem: &Problem) -> Option<i32> {
 
 fn main() -> anyhow::Result<()> {
     let input_string = common::read_file("day16/input.txt")?;
-    let valves = parse_input(&input_string)?;
-    check_all_bidirectional(&valves)?;
-    println!("{:#?}", valves);
+    let problem = parse_input(&input_string)?;
+    check_all_bidirectional(&problem)?;
+   
+    for v in problem.valves.values() {
+        println!("{:?}", v);
+    }
 
     println!("Note: should NOT be 1854 - it is too high!");
-    println!("part1 result: {}", part1(&valves).ok_anyhow()?);
+    println!("part1 result: {}", part1(&problem).ok_anyhow()?);
 
     Ok(())
 }
