@@ -340,15 +340,12 @@ fn main() -> anyhow::Result<()> {
     let problem_part1 = parse_input(&input_string, TIME_PART1)?;
     check_all_bidirectional(&problem_part1)?;
 
-    // for v in problem.valves.values() {
-    //     println!("{:?}", v);
-    // }
-
     println!("Note: should NOT be 1854 - it is too high (from starting at wrong node)");
     println!("Note: should be 1741");
     println!("part1 result: {}", part1(&problem_part1));
 
     let problem_part2 = parse_input(&input_string, TIME_PART2)?;
+    println!("Note: should be 2316. This takes a few minutes to run, so needs a better approach.");
     println!("part2 result: {}", part2(&problem_part2));
 
     Ok(())
