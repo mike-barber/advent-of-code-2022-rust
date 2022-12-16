@@ -227,11 +227,13 @@ fn explore_most_flow_dual(
 ) -> Option<i32> {
     // we're at max time; nothing further we can do from here
     if prior_time == MAX_TIME {
+        println!("max time with flow: {prior_flow}");
         return Some(prior_flow);
     }
 
     // everything turned on; nothing we can do from here
     if enabled.len() == problem.num_valves_with_flow {
+        println!("everything on with flow: {prior_flow} at time {prior_time}");
         return Some(prior_flow);
     }
 
