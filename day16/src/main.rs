@@ -230,19 +230,7 @@ fn explore_most_flow_dual(
     prior_node: [Option<Code>; 2],
     prior_time: i32,
     prior_flow: i32,
-) -> i32 {
-    // we're at max time; nothing further we can do from here
-    if prior_time == problem.permitted_time {
-        // println!("max time with flow: {prior_flow}");
-        return prior_flow;
-    }
-
-    // everything turned on; nothing we can do from here
-    if turned_on.len() == problem.num_valves_with_flow {
-        // println!("everything on with flow: {prior_flow} at time {prior_time}");
-        return prior_flow;
-    }
-
+) {
     // two options at this valve
     // 1. skip over it, then consider move (by calling back to here)
     // 2. open valve then move on (if it has a non-zero flow rate)
@@ -287,15 +275,31 @@ fn explore_most_flow_dual(
             }
         }
 
+        // update global max if we've found an improvement
+        if now_flow > *global_best_found {
+            println!("new best: {now_flow}");
+        }
+        *global_best_found = now_flow.max(*global_best_found);
+
+        // we're at max time; nothing further we can do from here
+        if now_time == problem.permitted_time {
+            return;
+        }
+
+        // everything turned on; nothing we can do from here
+        if turned_on.len() == problem.num_valves_with_flow {
+            return;
+        }
+
         // DP part: skip expensive recursion if the remaining value at this point is below the current
         // best estimate we've found. The value we realise from recursion is strictly less than this value.
         let remaining_time_value = problem.time_flow_from(now_remaining_potential, now_time);
         let maximum_payoff = now_flow + remaining_time_value;
-        if maximum_payoff < *global_best_found {
+        if maximum_payoff <= *global_best_found {
             continue;
         }
 
-        let sub_best = explore_most_flow_dual(
+        explore_most_flow_dual(
             problem,
             global_best_found,
             now_at,
@@ -305,15 +309,7 @@ fn explore_most_flow_dual(
             now_time,
             now_flow,
         );
-
-        if sub_best > *global_best_found {
-            println!("new best: {sub_best}");
-        }
-
-        *global_best_found = sub_best.max(*global_best_found);
     }
-
-    *global_best_found
 }
 
 fn part2(problem: &Problem) -> i32 {
@@ -329,7 +325,8 @@ fn part2(problem: &Problem) -> i32 {
         [None, None],
         0,
         0,
-    )
+    );
+    best_found
 }
 
 const TIME_PART1: i32 = 30;
