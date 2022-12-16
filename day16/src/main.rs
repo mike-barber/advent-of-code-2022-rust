@@ -1,11 +1,19 @@
 use anyhow::bail;
 use regex::Regex;
-use std::{ops::{Add, Sub}, collections::{HashSet, HashMap}};
+use std::{
+    collections::{HashMap, HashSet},
+    ops::{Add, Sub}, fmt::Display,
+};
 
 use common::OptionAnyhow;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct Code<'a>(&'a str);
+impl<'a> Display for Code<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Valve<'a> {
@@ -21,8 +29,10 @@ fn parse_code(code: &str) -> anyhow::Result<Code> {
     Ok(Code(code))
 }
 
-fn parse_input(input: &str) -> anyhow::Result<Vec<Valve>> {
-    let re = Regex::new(r#"Valve ([A-Z]+) has flow rate=(\d+); tunnel[s]? lead[s]? to valve[s]? ([A-Z, ]*)$"#)?;
+fn parse_input(input: &str) -> anyhow::Result<HashMap<Code, Valve>> {
+    let re = Regex::new(
+        r#"Valve ([A-Z]+) has flow rate=(\d+); tunnel[s]? lead[s]? to valve[s]? ([A-Z, ]*)$"#,
+    )?;
 
     input
         .lines()
@@ -41,13 +51,29 @@ fn parse_input(input: &str) -> anyhow::Result<Vec<Valve>> {
                 .collect();
             let connects_to = connects_to?;
 
-            Ok(Valve {
+            Ok((
                 code,
-                rate,
-                connects_to,
-            })
+                Valve {
+                    code,
+                    rate,
+                    connects_to,
+                },
+            ))
         })
         .collect()
+}
+
+fn check_all_bidirectional(valves: &HashMap<Code, Valve>) -> anyhow::Result<()> {
+    for (code, valve) in valves {
+        for connected in valve.connects_to.iter() {
+            let other = valves.get(connected).ok_anyhow()?;
+            if !other.connects_to.contains(code) {
+                bail!("Valve {connected} does not connect back to {code}");
+            }
+        }
+    }
+
+    Ok(())
 }
 
 const MAX_TIME: i32 = 30;
@@ -58,19 +84,24 @@ fn total_flow(valve: &Valve, opened_minute: i32) -> i32 {
 }
 
 fn option_max(a: Option<i32>, b: Option<i32>) -> Option<i32> {
-    match (a,b) {
+    match (a, b) {
         (None, None) => None,
         (None, Some(b)) => Some(b),
         (Some(a), None) => Some(a),
-        (Some(a), Some(b)) => Some(a.max(b))
+        (Some(a), Some(b)) => Some(a.max(b)),
     }
 }
 
 // basic DFS
-fn explore_most_flow(valves: &HashMap<Code, &Valve>, at: &Valve, prior_seen: &Vec<Code>, prior_time: i32, prior_flow: i32) -> Option<i32> {
-
+fn explore_most_flow(
+    valves: &HashMap<Code, &Valve>,
+    at: &Valve,
+    prior_seen: &Vec<Code>,
+    prior_time: i32,
+    prior_flow: i32,
+) -> Option<i32> {
     if prior_time == MAX_TIME {
-        return Some(prior_flow)
+        return Some(prior_flow);
     }
 
     let mut seen = prior_seen.clone();
@@ -78,17 +109,14 @@ fn explore_most_flow(valves: &HashMap<Code, &Valve>, at: &Valve, prior_seen: &Ve
 
     let mut best = None;
     for next in at.connects_to.iter().filter(|v| !prior_seen.contains(*v)) {
-
         let next_valve = valves.get(next).unwrap();
 
         // consider opening valve
-        if at.rate > 0 && prior_time < MAX_TIME - 1{
+        if at.rate > 0 && prior_time < MAX_TIME - 1 {
             let time = prior_time + 1;
             let flow = prior_flow + total_flow(at, time);
 
-            if time < MAX_TIME {
-
-            }
+            if time < MAX_TIME {}
         }
 
         // consider skipping opening valve and moving
@@ -98,17 +126,17 @@ fn explore_most_flow(valves: &HashMap<Code, &Valve>, at: &Valve, prior_seen: &Ve
 
             let explored_flow = explore_most_flow(valves, next_valve, &seen, time, flow);
             best = option_max(best, explored_flow);
-        } 
+        }
     }
 
     best
 }
 
-
 fn main() -> anyhow::Result<()> {
     let input_string = common::read_file("day16/input.txt")?;
-    let input = parse_input(&input_string)?;
-    println!("{:#?}", input);
+    let valves = parse_input(&input_string)?;
+    check_all_bidirectional(&valves)?;
+    println!("{:#?}", valves);
 
     // println!("part1 result: {}", part1(&input, 2000000));
     // println!("part2 result: {}", part2(&input, 0, 4000000).ok_anyhow()?);
@@ -137,6 +165,7 @@ mod tests {
     #[test]
     fn parse_inputs_succeeds() {
         let valves = parse_input(TEST_INPUT).unwrap();
+        check_all_bidirectional(&valves).unwrap();
         println!("{valves:?}");
     }
 
