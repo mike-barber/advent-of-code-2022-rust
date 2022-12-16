@@ -33,6 +33,13 @@ struct Problem {
     valves: HashMap<Code, Valve>,
     start: Code,
     num_valves_with_flow: usize,
+    permitted_time: i32,
+}
+impl Problem {
+    fn time_flow_from(&self, valve_rate: i32, opened_minute: i32) -> i32 {
+        let total_minutes_open = self.permitted_time - opened_minute;
+        valve_rate * total_minutes_open
+    }
 }
 
 fn parse_code(code: &str) -> AnyResult<Code> {
@@ -43,12 +50,10 @@ fn parse_code(code: &str) -> AnyResult<Code> {
     Ok(Code([chars.next().unwrap(), chars.next().unwrap()]))
 }
 
-fn parse_input(input: &str) -> AnyResult<Problem> {
+fn parse_input(input: &str, permitted_time: i32) -> AnyResult<Problem> {
     let re = Regex::new(
         r#"Valve ([A-Z]+) has flow rate=(\d+); tunnel[s]? lead[s]? to valve[s]? ([A-Z, ]*)$"#,
     )?;
-
-    //let mut first_code = ;
 
     let valves: AnyResult<HashMap<Code, Valve>> = input
         .lines()
@@ -57,10 +62,6 @@ fn parse_input(input: &str) -> AnyResult<Problem> {
 
             let code = parse_code(cap.get(1).ok_anyhow()?.as_str())?;
             let rate = cap.get(2).ok_anyhow()?.as_str().parse()?;
-
-            // if first_code.is_none() {
-            //     first_code = Some(code);
-            // }
 
             let connects_to: Result<Vec<_>, _> = cap
                 .get(3)
@@ -86,9 +87,10 @@ fn parse_input(input: &str) -> AnyResult<Problem> {
     let num_valves_with_flow = valves.values().filter(|v| v.rate > 0).count();
 
     Ok(Problem {
-        valves: valves,
+        valves,
         start: parse_code("AA")?,
         num_valves_with_flow,
+        permitted_time,
     })
 }
 
@@ -106,13 +108,6 @@ fn check_all_bidirectional(problem: &Problem) -> AnyResult<()> {
     Ok(())
 }
 
-const MAX_TIME: i32 = 30;
-
-fn time_flow_from(valve_rate: i32, opened_minute: i32) -> i32 {
-    let total_minutes_open = MAX_TIME - opened_minute;
-    valve_rate * total_minutes_open
-}
-
 // basic DFS
 fn explore_most_flow(
     problem: &Problem,
@@ -125,7 +120,7 @@ fn explore_most_flow(
     prior_flow: i32,
 ) -> i32 {
     // we're at max time; nothing further we can do from here
-    if prior_time == MAX_TIME {
+    if prior_time == problem.permitted_time {
         return prior_flow;
     }
 
@@ -148,7 +143,7 @@ fn explore_most_flow(
         match next_move {
             Move::TurnOn => {
                 now_enabled.push(at.code);
-                now_flow += time_flow_from(at.rate, now_time);
+                now_flow += problem.time_flow_from(at.rate, now_time);
                 now_remaining_potential -= at.rate;
             }
             Move::Code(c) => {
@@ -159,7 +154,7 @@ fn explore_most_flow(
 
         // DP part: skip expensive recursion if the remaining value at this point is below the current
         // best estimate we've found. The value we realise from recursion is strictly less than this value.
-        let remaining_time_value = time_flow_from(now_remaining_potential, now_time);
+        let remaining_time_value = problem.time_flow_from(now_remaining_potential, now_time);
         let maximum_payoff = now_flow + remaining_time_value;
         if maximum_payoff < *global_best_found {
             continue;
@@ -237,14 +232,14 @@ fn explore_most_flow_dual(
     prior_flow: i32,
 ) -> i32 {
     // we're at max time; nothing further we can do from here
-    if prior_time == MAX_TIME {
-        println!("max time with flow: {prior_flow}");
+    if prior_time == problem.permitted_time {
+        // println!("max time with flow: {prior_flow}");
         return prior_flow;
     }
 
     // everything turned on; nothing we can do from here
     if turned_on.len() == problem.num_valves_with_flow {
-        println!("everything on with flow: {prior_flow} at time {prior_time}");
+        // println!("everything on with flow: {prior_flow} at time {prior_time}");
         return prior_flow;
     }
 
@@ -257,7 +252,7 @@ fn explore_most_flow_dual(
     for (own, ele) in iproduct!(own_moves.iter(), ele_moves.iter().rev()) {
         // skip case where both turn on same valve
         if at[0] == at[1] && own == &Move::TurnOn && ele == &Move::TurnOn {
-            println!("Skipping dual turn on at {:?} {:?}", at[0], at[1]);
+            //println!("Skipping dual turn on at {:?} {:?}", at[0], at[1]);
             continue;
         }
 
@@ -271,7 +266,7 @@ fn explore_most_flow_dual(
         match own {
             Move::TurnOn => {
                 now_enabled.push(at[0].code);
-                now_flow += time_flow_from(at[0].rate, now_time);
+                now_flow += problem.time_flow_from(at[0].rate, now_time);
                 now_remaining_potential -= at[0].rate;
             }
             Move::Code(c) => {
@@ -283,7 +278,7 @@ fn explore_most_flow_dual(
         match ele {
             Move::TurnOn => {
                 now_enabled.push(at[1].code);
-                now_flow += time_flow_from(at[1].rate, now_time);
+                now_flow += problem.time_flow_from(at[1].rate, now_time);
                 now_remaining_potential -= at[1].rate;
             }
             Move::Code(c) => {
@@ -294,7 +289,7 @@ fn explore_most_flow_dual(
 
         // DP part: skip expensive recursion if the remaining value at this point is below the current
         // best estimate we've found. The value we realise from recursion is strictly less than this value.
-        let remaining_time_value = time_flow_from(now_remaining_potential, now_time);
+        let remaining_time_value = problem.time_flow_from(now_remaining_potential, now_time);
         let maximum_payoff = now_flow + remaining_time_value;
         if maximum_payoff < *global_best_found {
             continue;
@@ -311,9 +306,7 @@ fn explore_most_flow_dual(
             now_flow,
         );
 
-        if sub_best > *global_best_found {
-            *global_best_found = sub_best;
-        }
+        *global_best_found = sub_best.max(*global_best_found);
     }
 
     *global_best_found
@@ -335,10 +328,13 @@ fn part2(problem: &Problem) -> i32 {
     )
 }
 
+const TIME_PART1: i32 = 30;
+const TIME_PART2: i32 = 26;
+
 fn main() -> anyhow::Result<()> {
     let input_string = common::read_file("day16/input.txt")?;
-    let problem = parse_input(&input_string)?;
-    check_all_bidirectional(&problem)?;
+    let problem_part1 = parse_input(&input_string, TIME_PART1)?;
+    check_all_bidirectional(&problem_part1)?;
 
     // for v in problem.valves.values() {
     //     println!("{:?}", v);
@@ -346,9 +342,10 @@ fn main() -> anyhow::Result<()> {
 
     println!("Note: should NOT be 1854 - it is too high (from starting at wrong node)");
     println!("Note: should be 1741");
-    println!("part1 result: {}", part1(&problem));
+    println!("part1 result: {}", part1(&problem_part1));
 
-    println!("part2 result: {}", part2(&problem));
+    let problem_part2 = parse_input(&input_string, TIME_PART2)?;
+    println!("part2 result: {}", part2(&problem_part2));
 
     Ok(())
 }
@@ -373,21 +370,21 @@ mod tests {
 
     #[test]
     fn parse_inputs_succeeds() {
-        let problem = parse_input(TEST_INPUT).unwrap();
+        let problem = parse_input(TEST_INPUT, TIME_PART1).unwrap();
         check_all_bidirectional(&problem).unwrap();
         println!("{problem:?}");
     }
 
     #[test]
     fn part1_correct() {
-        let problem = parse_input(TEST_INPUT).unwrap();
+        let problem = parse_input(TEST_INPUT, TIME_PART1).unwrap();
         let res = part1(&problem);
         assert_eq!(res, 1651);
     }
 
     #[test]
     fn part2_correct() {
-        let problem = parse_input(TEST_INPUT).unwrap();
+        let problem = parse_input(TEST_INPUT, TIME_PART2).unwrap();
         let res = part2(&problem);
         assert_eq!(res, 1707);
     }
