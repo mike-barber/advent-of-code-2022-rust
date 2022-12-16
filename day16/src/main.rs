@@ -10,10 +10,10 @@ use common::OptionAnyhow;
 type AnyResult<T> = anyhow::Result<T>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-struct Code([char;2]);
+struct Code([char; 2]);
 impl<'a> Display for Code {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}{}",self.0[0], self.0[1])
+        write!(f, "{}{}", self.0[0], self.0[1])
     }
 }
 
@@ -27,7 +27,8 @@ struct Valve {
 #[derive(Debug)]
 struct Problem {
     valves: HashMap<Code, Valve>,
-    start: Code
+    start: Code,
+    num_valves_with_flow: usize,
 }
 
 fn parse_code(code: &str) -> AnyResult<Code> {
@@ -45,7 +46,7 @@ fn parse_input(input: &str) -> AnyResult<Problem> {
 
     let mut first_code = None;
 
-    let valves: AnyResult<HashMap<Code,Valve>> = input
+    let valves: AnyResult<HashMap<Code, Valve>> = input
         .lines()
         .map(|l| {
             let cap = re.captures(l).ok_anyhow()?;
@@ -77,8 +78,14 @@ fn parse_input(input: &str) -> AnyResult<Problem> {
         })
         .collect();
 
-    Ok(Problem { valves: valves?, start: first_code.ok_anyhow()? })
+    let valves = valves?;
+    let num_valves_with_flow = valves.values().filter(|v| v.rate > 0).count();
 
+    Ok(Problem {
+        valves: valves,
+        start: first_code.ok_anyhow()?,
+        num_valves_with_flow,
+    })
 }
 
 fn check_all_bidirectional(problem: &Problem) -> AnyResult<()> {
@@ -126,11 +133,10 @@ fn explore_most_flow(
     }
 
     // everything turned on; nothing we can do from here
-    let valves = &problem.valves;
-    if enabled.len() == valves.len() {
+    if enabled.len() == problem.num_valves_with_flow {
         return Some(prior_flow);
     }
-    
+
     // two options at this valve
     // 1. skip over it, then consider move (by calling back to here)
     // 2. open valve then move on (if it has a non-zero flow rate)
@@ -155,7 +161,7 @@ fn explore_most_flow(
 
         // consider moving to next code
         let now_time = prior_time + 1;
-        let next_valve = valves.get(next_code).unwrap();
+        let next_valve = problem.valves.get(next_code).unwrap();
         let sub_best = explore_most_flow(
             problem,
             next_valve,
@@ -181,6 +187,7 @@ fn main() -> anyhow::Result<()> {
     check_all_bidirectional(&valves)?;
     println!("{:#?}", valves);
 
+    println!("Note: should NOT be 1854 - it is too high!");
     println!("part1 result: {}", part1(&valves).ok_anyhow()?);
 
     Ok(())
