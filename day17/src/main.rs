@@ -1,12 +1,10 @@
 use anyhow::anyhow;
 use common::*;
 use indoc::indoc;
-use nalgebra::{
-    dmatrix, Const, DMatrix, DVector, Dynamic, OMatrix, RowVector, RowVector3, SMatrix, U7,
-};
+use nalgebra::{dmatrix, Const, DMatrix, DVectorSlice, Dynamic, OMatrix};
 use std::{
-    any::Any,
     fmt::{Display, Write},
+    iter,
 };
 
 use lazy_static::lazy_static;
@@ -216,6 +214,10 @@ fn main() -> AnyResult<()> {
     let jet_pattern = parse_input(&read_file("day17/input.txt")?)?;
     println!("part 1 result = {}", part1(&jet_pattern));
 
+    scratch();
+
+    part2(&jet_pattern);
+
     Ok(())
 }
 
@@ -240,53 +242,70 @@ fn part1(jet_pattern: &[Jet]) -> usize {
     problem.tower_height()
 }
 
-fn scratch() {
-    let rock: SMatrix<i32, 3, 3> = SMatrix::from_rows(&[
-        RowVector3::new(0, 1, 0),
-        RowVector3::new(1, 1, 1),
-        RowVector3::new(0, 1, 0),
-    ]);
-
-    let rock2 = dmatrix![
-        0,1,0;
-        1,1,1;
-        0,1,0;
-    ];
-
-    println!("rock: {rock}");
-    println!("rock: {rock2}");
-
-    for rock in ROCKS.iter() {
-        println!("{rock}");
+fn part2(jet_pattern: &[Jet]) -> usize {
+    let mut jets_iter = jet_pattern.iter().cycle().copied();
+    let mut problem = Problem::new(8);
+    for rock in ROCKS.iter().cycle().take(jet_pattern.len() * ROCKS.len()) {
+        problem = problem.drop_rock(rock, &mut jets_iter);
     }
+    println!("height: {}", problem.tower_height());
+    println!("jet pattern length: {}", jet_pattern.len());
+    let repeat_length = test_row_ranges(
+        jet_pattern.len(),
+        problem.highest_occupied_row,
+        &problem.matrix,
+    );
 
-    {
-        let mut problem_space: DMatrix<i32> = DMatrix::zeros(8, 7);
-        println!("{}", problem_space);
-        let mut sub_matrix = problem_space.slice_mut((2, 2), (3, 3));
-        let rock = &ROCKS[1];
-        sub_matrix.copy_from(rock);
-        sub_matrix += rock;
-        println!("{}", problem_space);
-        let mut problem_space = problem_space.insert_rows(0, 8, 0);
-        println!("{}", problem_space);
-        println!("{}x{}", problem_space.nrows(), problem_space.ncols());
-    }
-
-    {
-        let mut problem_space: OMatrix<i32, Dynamic, U7> = OMatrix::<i32, Dynamic, U7>::zeros(8);
-        let mut sub_matrix = problem_space.slice_mut((2, 2), (3, 3));
-        let rock = &ROCKS[1];
-        sub_matrix.copy_from(rock);
-        sub_matrix += rock;
-        println!("{}", problem_space);
-        let mut problem_space = problem_space.insert_rows(0, 8, 0);
-        println!("{}", problem_space);
-        println!("{}x{}", problem_space.nrows(), problem_space.ncols());
-    }
+    repeat_length
 }
 
-//#[cfg(test)]
+fn row_as_byte(r: usize, matrix: &ProblemMatrix) -> u8 {
+    let row = matrix.row(r);
+    let mut byte = 0u8;
+    for c in 0..row.len() {
+        let x = row[c] as u8;
+        byte |= x << c;
+    }
+    byte
+}
+
+fn test_row_ranges(min: usize, start_offset: usize, matrix: &ProblemMatrix) -> usize {
+    for len in min.. {
+        let a_start = start_offset;
+        let a = (0..len).map(|i| row_as_byte(a_start + i, matrix));
+
+        let b_start = start_offset + len;
+        let b = (0..len).map(|i| row_as_byte(b_start + i, matrix));
+
+        if iter::zip(a, b).all(|(a, b)| a == b) {
+            println!("len = {len}");
+            return len;
+        }
+    }
+    panic!("no elements matched");
+}
+
+fn scratch() {
+    // let jet_pattern = parse_input(TEST_INPUT).unwrap();
+    // let mut jets_iter = jet_pattern.iter().cycle().copied();
+    // let mut problem = Problem::new(8);
+    // for rock in ROCKS.iter().cycle().take(jet_pattern.len() * ROCKS.len()) {
+    //     problem = problem.drop_rock(rock, &mut jets_iter);
+    // }
+    // println!("{problem}");
+    // println!("jet length: {}", jet_pattern.len());
+    // println!("rock length: {}", ROCKS.len());
+
+    // test_row_ranges(
+    //     jet_pattern.len(),
+    //     problem.highest_occupied_row,
+    //     &problem.matrix,
+    // );
+
+    
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
