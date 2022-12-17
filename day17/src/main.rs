@@ -4,7 +4,10 @@ use indoc::indoc;
 use nalgebra::{
     dmatrix, Const, DMatrix, DVector, Dynamic, OMatrix, RowVector, RowVector3, SMatrix, U7,
 };
-use std::any::Any;
+use std::{
+    any::Any,
+    fmt::{Display, Write},
+};
 
 use lazy_static::lazy_static;
 
@@ -86,13 +89,55 @@ impl Problem {
     fn initial_position(&self, rock: &RockMatrix) -> Option<(usize, usize)> {
         let rock_height = rock.nrows();
         let highest = self.highest_occupied_row;
-        match highest.checked_sub(rock_height) {
+        match highest.checked_sub(rock_height + 3) {
             Some(row) => Some((row, 2)),
             None => None,
         }
     }
 
-    fn drop_rock(mut self, rock: &RockMatrix, jet_pattern: &JetPattern) -> Self {
+    fn try_move(
+        &self,
+        pos: (usize, usize),
+        rows: isize,
+        cols: isize,
+        rock_buffer: &mut RockMatrix,
+        rock: &RockMatrix,
+    ) -> Option<(usize, usize)> {
+        let mut r = pos.0 as isize;
+        let mut c = pos.1 as isize;
+
+        r += rows;
+        c += cols;
+
+        if r < 0 || c < 0 {
+            return None;
+        }
+
+        if r as usize + rock.nrows() > self.matrix.nrows() {
+            return None;
+        }
+
+        if c as usize + rock.ncols() > self.matrix.ncols() {
+            return None;
+        }
+
+        let r = r as usize;
+        let c = c as usize;
+
+        // check collision by adding rock to the correct slice in the matrix
+        rock_buffer.copy_from(rock);
+        let rock_dims = (rock.nrows(), rock.ncols());
+        let sub_matrix = self.matrix.slice((r, c), rock_dims);
+        *rock_buffer += sub_matrix;
+        if rock_buffer.iter().any(|&x| x > 1) {
+            return None;
+        }
+
+        // acceptable move
+        Some((r as usize, c as usize))
+    }
+
+    fn drop_rock(mut self, rock: &RockMatrix, jet_pattern: &mut impl Iterator<Item = Jet>) -> Self {
         let rock_dims = (rock.nrows(), rock.ncols());
 
         // create space for new rock and get the intial position
@@ -104,63 +149,95 @@ impl Problem {
             }
         };
 
+        // reusable buffer for rock collision tests
+        let mut rock_buffer = rock.clone();
+
         // find lowest location to place rock without a conflict
-        let mut rock_sum = rock.clone();
         let mut current_loc = initial;
-        for (row_offset, jet) in (0..).zip(jet_pattern.iter().cycle()) {
-            
+        let final_loc = loop {
             // respond to jet on current row
-            let col = match (jet, current_loc.1) {
-                (Jet::L, c) if c > 0 => c-1,
-                (Jet::R, c) if c < COLUMNS - rock_dims.1 => c + 1,
-                (_,c) => c,
+            let jet = jet_pattern.next().unwrap();
+            let col_delta = match jet {
+                Jet::L => -1,
+                Jet::R => 1,
             };
 
+            if let Some(loc) = self.try_move(current_loc, 0, col_delta, &mut rock_buffer, rock) {
+                //println!("moved x by {jet:?}");
+                current_loc = loc;
+            }
+
             // move down 1
-            let loc = (initial.0 + row_offset, col);
-
-            let bottom_row = loc.0 + rock_dims.0;
-            if bottom_row >= self.matrix.nrows() {
-                println!("hit bottom with loc: {:?}", loc);
-                break;
+            if let Some(loc) = self.try_move(current_loc, 1, 0, &mut rock_buffer, rock) {
+                //println!("moved down 1");
+                current_loc = loc;
+            } else {
+                // stop - no further move possible
+                //println!("conflict found at {current_loc:?}");
+                break current_loc;
             }
-
-            let sub_matrix = self.matrix.slice_mut(loc, rock_dims);
-            rock_sum.copy_from(rock);
-            rock_sum += sub_matrix;
-
-            let conflict = rock_sum.iter().any(|v| *v > 1);
-            if conflict {
-                println!("conflict found at row {row_offset}");
-                println!("{}", rock_sum);
-                break;
-            }
-
-            // update placement location from prior
-            current_loc = loc;
-        }
+        };
 
         // place rock
-        {
-            let mut sub_matrix = self.matrix.slice_mut(current_loc, rock_dims);
-            sub_matrix += rock;
-            self.highest_occupied_row = current_loc.0;
-        }
-        println!("placed rock: {}", self.matrix);
+        let mut sub_matrix = self.matrix.slice_mut(final_loc, rock_dims);
+        sub_matrix += rock;
+        self.highest_occupied_row = self.highest_occupied_row.min(current_loc.0);
 
         self
+    }
+
+    fn tower_height(&self) -> usize {
+        self.matrix.nrows() - self.highest_occupied_row
+    }
+}
+impl Display for Problem {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for r in 0..self.matrix.nrows() {
+            for c in 0..self.matrix.ncols() {
+                let ch = match self.matrix.get((r, c)).unwrap() {
+                    0 => '.',
+                    1 => '#',
+                    _ => '?',
+                };
+                f.write_char(ch)?;
+            }
+            if r == self.highest_occupied_row {
+                write!(f, " *")?;
+            }
+            writeln!(f)?;
+        }
+        Ok(())
     }
 }
 
 fn main() -> AnyResult<()> {
-    let pattern = parse_input(TEST_INPUT)?;
-    let mut problem = Problem::new(8);
+    demo();
 
-    for r in ROCKS.iter() {
-        problem = problem.drop_rock(r, &pattern);
-    }
+    let jet_pattern = parse_input(&read_file("day17/input.txt")?)?;
+    println!("part 1 result = {}", part1(&jet_pattern));
 
     Ok(())
+}
+
+fn demo() {
+    let jet_pattern = parse_input(TEST_INPUT).unwrap();
+    let mut problem = Problem::new(8);
+    let mut jets_iter = jet_pattern.iter().cycle().copied();
+    for rock in ROCKS.iter().cycle().take(10) {
+        println!("---------------------------");
+        println!("{rock}");
+        problem = problem.drop_rock(rock, &mut jets_iter);
+        println!("{problem}");
+    }
+}
+
+fn part1(jet_pattern: &[Jet]) -> usize {
+    let mut jets_iter = jet_pattern.iter().cycle().copied();
+    let mut problem = Problem::new(8);
+    for rock in ROCKS.iter().cycle().take(2022) {
+        problem = problem.drop_rock(rock, &mut jets_iter);
+    }
+    problem.tower_height()
 }
 
 fn scratch() {
@@ -211,12 +288,18 @@ fn scratch() {
 
 //#[cfg(test)]
 mod tests {
-
     use super::*;
 
     #[test]
     fn parse_input_correct() {
         let pattern = parse_input(TEST_INPUT).unwrap();
         println!("{:?}", pattern);
+    }
+
+    #[test]
+    fn part1_correct() {
+        let pattern = parse_input(TEST_INPUT).unwrap();
+        let res = part1(&pattern);
+        assert_eq!(res, 3068);
     }
 }
