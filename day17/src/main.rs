@@ -1,8 +1,10 @@
 use anyhow::anyhow;
 use common::*;
+use indoc::indoc;
 use nalgebra::{
     dmatrix, Const, DMatrix, DVector, Dynamic, OMatrix, RowVector, RowVector3, SMatrix, U7,
 };
+use std::any::Any;
 
 use lazy_static::lazy_static;
 
@@ -38,6 +40,8 @@ lazy_static! {
         ]
     ];
 }
+
+pub const TEST_INPUT: &str = indoc! {">>><<><>><<<>><>>><<<>>><<<><<<>><>><<>>"};
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 enum Jet {
@@ -88,7 +92,7 @@ impl Problem {
         }
     }
 
-    fn drop_rock(mut self, rock: &RockMatrix) -> Self {
+    fn drop_rock(mut self, rock: &RockMatrix, jet_pattern: &JetPattern) -> Self {
         let rock_dims = (rock.nrows(), rock.ncols());
 
         // create space for new rock and get the intial position
@@ -102,10 +106,19 @@ impl Problem {
 
         // find lowest location to place rock without a conflict
         let mut rock_sum = rock.clone();
-        let mut placement_loc = initial;
-        for row_offset in 0.. {
-            let loc = (initial.0 + row_offset, initial.1);
+        let mut current_loc = initial;
+        for (row_offset, jet) in (0..).zip(jet_pattern.iter().cycle()) {
             
+            // respond to jet on current row
+            let col = match (jet, current_loc.1) {
+                (Jet::L, c) if c > 0 => c-1,
+                (Jet::R, c) if c < COLUMNS - rock_dims.1 => c + 1,
+                (_,c) => c,
+            };
+
+            // move down 1
+            let loc = (initial.0 + row_offset, col);
+
             let bottom_row = loc.0 + rock_dims.0;
             if bottom_row >= self.matrix.nrows() {
                 println!("hit bottom with loc: {:?}", loc);
@@ -115,7 +128,7 @@ impl Problem {
             let sub_matrix = self.matrix.slice_mut(loc, rock_dims);
             rock_sum.copy_from(rock);
             rock_sum += sub_matrix;
-            
+
             let conflict = rock_sum.iter().any(|v| *v > 1);
             if conflict {
                 println!("conflict found at row {row_offset}");
@@ -124,14 +137,14 @@ impl Problem {
             }
 
             // update placement location from prior
-            placement_loc = loc;
+            current_loc = loc;
         }
 
         // place rock
         {
-            let mut sub_matrix = self.matrix.slice_mut(placement_loc, rock_dims);
+            let mut sub_matrix = self.matrix.slice_mut(current_loc, rock_dims);
             sub_matrix += rock;
-            self.highest_occupied_row = placement_loc.0;
+            self.highest_occupied_row = current_loc.0;
         }
         println!("placed rock: {}", self.matrix);
 
@@ -139,15 +152,15 @@ impl Problem {
     }
 }
 
-fn main() {
+fn main() -> AnyResult<()> {
+    let pattern = parse_input(TEST_INPUT)?;
     let mut problem = Problem::new(8);
 
     for r in ROCKS.iter() {
-        problem = problem.drop_rock(r);
+        problem = problem.drop_rock(r, &pattern);
     }
-    problem = problem.drop_rock(&ROCKS[0]);
-    problem = problem.drop_rock(&ROCKS[0]);
-    problem = problem.drop_rock(&ROCKS[0]);
+
+    Ok(())
 }
 
 fn scratch() {
@@ -196,13 +209,10 @@ fn scratch() {
     }
 }
 
-#[cfg(test)]
+//#[cfg(test)]
 mod tests {
-    use indoc::indoc;
 
     use super::*;
-
-    pub const TEST_INPUT: &str = indoc! {">>><<><>><<<>><>>><<<>>><<<><<<>><>><<>>"};
 
     #[test]
     fn parse_input_correct() {
