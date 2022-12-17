@@ -50,14 +50,15 @@ enum Jet {
     R,
 }
 
-type JetPattern = Vec<Jet>;
+type JetPattern = Vec<JetIndex>;
+type JetIndex = (usize, Jet);
 
 fn parse_input(input: &str) -> AnyResult<JetPattern> {
     input
-        .chars()
-        .map(|c| match c {
-            '<' => Ok(Jet::L),
-            '>' => Ok(Jet::R),
+        .char_indices()
+        .map(|(i, c)| match c {
+            '<' => Ok((i, Jet::L)),
+            '>' => Ok((i, Jet::R)),
             _ => Err(anyhow!("unrecognised character")),
         })
         .collect()
@@ -66,6 +67,7 @@ fn parse_input(input: &str) -> AnyResult<JetPattern> {
 struct Problem {
     matrix: ProblemMatrix,
     highest_occupied_row: usize,
+    current_jet_index: usize,
 }
 impl Problem {
     fn new(initial_rows: usize) -> Self {
@@ -74,6 +76,7 @@ impl Problem {
         Problem {
             matrix,
             highest_occupied_row,
+            current_jet_index: 0,
         }
     }
 
@@ -135,7 +138,11 @@ impl Problem {
         Some((r as usize, c as usize))
     }
 
-    fn drop_rock(mut self, rock: &RockMatrix, jet_pattern: &mut impl Iterator<Item = Jet>) -> Self {
+    fn drop_rock(
+        mut self,
+        rock: &RockMatrix,
+        jet_pattern: &mut impl Iterator<Item = JetIndex>,
+    ) -> Self {
         let rock_dims = (rock.nrows(), rock.ncols());
 
         // create space for new rock and get the intial position
@@ -152,9 +159,9 @@ impl Problem {
 
         // find lowest location to place rock without a conflict
         let mut current_loc = initial;
-        let final_loc = loop {
+        let (jet_index, final_loc) = loop {
             // respond to jet on current row
-            let jet = jet_pattern.next().unwrap();
+            let (jet_index, jet) = jet_pattern.next().unwrap();
             let col_delta = match jet {
                 Jet::L => -1,
                 Jet::R => 1,
@@ -172,7 +179,7 @@ impl Problem {
             } else {
                 // stop - no further move possible
                 //println!("conflict found at {current_loc:?}");
-                break current_loc;
+                break (jet_index, current_loc);
             }
         };
 
@@ -180,6 +187,7 @@ impl Problem {
         let mut sub_matrix = self.matrix.slice_mut(final_loc, rock_dims);
         sub_matrix += rock;
         self.highest_occupied_row = self.highest_occupied_row.min(current_loc.0);
+        self.current_jet_index = jet_index;
 
         self
     }
@@ -233,7 +241,7 @@ fn demo() {
     }
 }
 
-fn part1(jet_pattern: &[Jet]) -> usize {
+fn part1(jet_pattern: &[JetIndex]) -> usize {
     let mut jets_iter = jet_pattern.iter().cycle().copied();
     let mut problem = Problem::new(8);
     for rock in ROCKS.iter().cycle().take(2022) {
@@ -242,11 +250,17 @@ fn part1(jet_pattern: &[Jet]) -> usize {
     problem.tower_height()
 }
 
-fn part2(jet_pattern: &[Jet]) -> usize {
+fn part2(jet_pattern: &[JetIndex]) -> usize {
     let mut jets_iter = jet_pattern.iter().cycle().copied();
     let mut problem = Problem::new(8);
+
     for rock in ROCKS.iter().cycle().take(jet_pattern.len() * ROCKS.len()) {
         problem = problem.drop_rock(rock, &mut jets_iter);
+        println!("jet index {} height {} top row {}",
+            problem.current_jet_index,
+            problem.highest_occupied_row,
+            problem.matrix.row(problem.highest_occupied_row)
+        );
     }
     println!("height: {}", problem.tower_height());
     println!("jet pattern length: {}", jet_pattern.len());
@@ -277,7 +291,7 @@ fn test_row_ranges(min: usize, start_offset: usize, matrix: &ProblemMatrix) -> u
         let b_start = start_offset + len;
         let b = (0..len).map(|i| row_as_byte(b_start + i, matrix));
 
-        if iter_all(a,b,|(a,b)| a==b) {
+        if iter_all(a, b, |(a, b)| a == b) {
             println!("len = {len}");
             return len;
         }
