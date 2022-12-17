@@ -15,3 +15,5 @@ impl<T> OptionAnyhow<T> for Option<T> {
         self.ok_or_else(|| anyhow::anyhow!("expected Some value"))
     }
 }
+
+pub type AnyResult<T> = anyhow::Result<T>;
