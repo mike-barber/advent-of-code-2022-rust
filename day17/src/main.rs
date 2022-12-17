@@ -1,11 +1,18 @@
 use anyhow::anyhow;
 use common::*;
-use nalgebra::{dmatrix, DMatrix, DVector, Dynamic, OMatrix, RowVector, RowVector3, SMatrix};
+use nalgebra::{
+    dmatrix, Const, DMatrix, DVector, Dynamic, OMatrix, RowVector, RowVector3, SMatrix, U7,
+};
 
 use lazy_static::lazy_static;
 
+const COLUMNS: usize = 7;
+type ConstCols = Const<COLUMNS>;
+type ProblemMatrix = OMatrix<i32, Dynamic, ConstCols>;
+type RockMatrix = DMatrix<i32>;
+
 lazy_static! {
-    static ref ROCKS: [DMatrix<i32>; 5] = [
+    static ref ROCKS: [RockMatrix; 5] = [
         dmatrix![
             1,1,1,1;
         ],
@@ -51,7 +58,99 @@ fn parse_input(input: &str) -> AnyResult<JetPattern> {
         .collect()
 }
 
+struct Problem {
+    matrix: ProblemMatrix,
+    highest_occupied_row: usize,
+}
+impl Problem {
+    fn new(initial_rows: usize) -> Self {
+        let matrix = ProblemMatrix::zeros(initial_rows);
+        let highest_occupied_row = initial_rows;
+        Problem {
+            matrix,
+            highest_occupied_row,
+        }
+    }
+
+    fn double_height(mut self) -> Self {
+        let current_rows = self.matrix.nrows();
+        self.matrix = self.matrix.insert_rows(0, current_rows, 0);
+        self.highest_occupied_row += current_rows;
+        self
+    }
+
+    fn initial_position(&self, rock: &RockMatrix) -> Option<(usize, usize)> {
+        let rock_height = rock.nrows();
+        let highest = self.highest_occupied_row;
+        match highest.checked_sub(rock_height) {
+            Some(row) => Some((row, 2)),
+            None => None,
+        }
+    }
+
+    fn drop_rock(mut self, rock: &RockMatrix) -> Self {
+        let rock_dims = (rock.nrows(), rock.ncols());
+
+        // create space for new rock and get the intial position
+        let initial = loop {
+            if let Some(pos) = self.initial_position(rock) {
+                break pos;
+            } else {
+                self = self.double_height();
+            }
+        };
+
+        // find lowest location to place rock without a conflict
+        let mut rock_sum = rock.clone();
+        let mut placement_loc = initial;
+        for row_offset in 0.. {
+            let loc = (initial.0 + row_offset, initial.1);
+            
+            let bottom_row = loc.0 + rock_dims.0;
+            if bottom_row >= self.matrix.nrows() {
+                println!("hit bottom with loc: {:?}", loc);
+                break;
+            }
+
+            let sub_matrix = self.matrix.slice_mut(loc, rock_dims);
+            rock_sum.copy_from(rock);
+            rock_sum += sub_matrix;
+            
+            let conflict = rock_sum.iter().any(|v| *v > 1);
+            if conflict {
+                println!("conflict found at row {row_offset}");
+                println!("{}", rock_sum);
+                break;
+            }
+
+            // update placement location from prior
+            placement_loc = loc;
+        }
+
+        // place rock
+        {
+            let mut sub_matrix = self.matrix.slice_mut(placement_loc, rock_dims);
+            sub_matrix += rock;
+            self.highest_occupied_row = placement_loc.0;
+        }
+        println!("placed rock: {}", self.matrix);
+
+        self
+    }
+}
+
 fn main() {
+    let mut problem = Problem::new(8);
+
+    for r in ROCKS.iter() {
+        problem = problem.drop_rock(r);
+    }
+    problem = problem.drop_rock(&ROCKS[0]);
+    problem = problem.drop_rock(&ROCKS[0]);
+    problem = problem.drop_rock(&ROCKS[0]);
+}
+
+fn scratch() {
     let rock: SMatrix<i32, 3, 3> = SMatrix::from_rows(&[
         RowVector3::new(0, 1, 0),
         RowVector3::new(1, 1, 1),
@@ -70,8 +169,32 @@ fn main() {
     for rock in ROCKS.iter() {
         println!("{rock}");
     }
-}
 
+    {
+        let mut problem_space: DMatrix<i32> = DMatrix::zeros(8, 7);
+        println!("{}", problem_space);
+        let mut sub_matrix = problem_space.slice_mut((2, 2), (3, 3));
+        let rock = &ROCKS[1];
+        sub_matrix.copy_from(rock);
+        sub_matrix += rock;
+        println!("{}", problem_space);
+        let mut problem_space = problem_space.insert_rows(0, 8, 0);
+        println!("{}", problem_space);
+        println!("{}x{}", problem_space.nrows(), problem_space.ncols());
+    }
+
+    {
+        let mut problem_space: OMatrix<i32, Dynamic, U7> = OMatrix::<i32, Dynamic, U7>::zeros(8);
+        let mut sub_matrix = problem_space.slice_mut((2, 2), (3, 3));
+        let rock = &ROCKS[1];
+        sub_matrix.copy_from(rock);
+        sub_matrix += rock;
+        println!("{}", problem_space);
+        let mut problem_space = problem_space.insert_rows(0, 8, 0);
+        println!("{}", problem_space);
+        println!("{}x{}", problem_space.nrows(), problem_space.ncols());
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -79,13 +202,11 @@ mod tests {
 
     use super::*;
 
-    const TEST_INPUT: &str = indoc! {">>><<><>><<<>><>>><<<>>><<<><<<>><>><<>>"};
+    pub const TEST_INPUT: &str = indoc! {">>><<><>><<<>><>>><<<>>><<<><<<>><>><<>>"};
 
     #[test]
     fn parse_input_correct() {
         let pattern = parse_input(TEST_INPUT).unwrap();
         println!("{:?}", pattern);
     }
-
-
 }
