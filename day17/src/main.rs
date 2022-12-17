@@ -3,6 +3,7 @@ use common::*;
 use indoc::indoc;
 use nalgebra::{dmatrix, Const, DMatrix, DVectorSlice, Dynamic, OMatrix};
 use std::{
+    collections::HashMap,
     fmt::{Display, Write},
     iter,
 };
@@ -195,6 +196,10 @@ impl Problem {
     fn tower_height(&self) -> usize {
         self.matrix.nrows() - self.highest_occupied_row
     }
+
+    fn row_from_height(&self, height: usize) -> usize {
+        self.matrix.nrows() - height
+    }
 }
 impl Display for Problem {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -250,18 +255,68 @@ fn part1(jet_pattern: &[JetIndex]) -> usize {
     problem.tower_height()
 }
 
+#[derive(Debug,Clone,PartialEq,Eq,Hash)]
+struct LastHitKey {
+    rock_index: usize,
+    jet_index: usize,
+    top_row_byte: u8
+}
+
+#[derive(Debug,Clone)]
+struct LastHitValue {
+    rock_count: usize,
+    tower_height: usize,
+}
+
 fn part2(jet_pattern: &[JetIndex]) -> usize {
+    
+    let mut height_history: HashMap<LastHitKey, LastHitValue> = HashMap::new();
+
     let mut jets_iter = jet_pattern.iter().cycle().copied();
     let mut problem = Problem::new(8);
 
-    for rock in ROCKS.iter().cycle().take(jet_pattern.len() * ROCKS.len()) {
+    let mut total_rock_count = 0;
+    for (rock_idx, rock) in ROCKS
+        .iter()
+        .enumerate()
+        .cycle()
+        .take(jet_pattern.len() * ROCKS.len())
+    {
         problem = problem.drop_rock(rock, &mut jets_iter);
-        println!("jet index {} height {} top row {}",
-            problem.current_jet_index,
-            problem.highest_occupied_row,
-            problem.matrix.row(problem.highest_occupied_row)
-        );
+        
+        // history key
+        if rock_idx == 0 {
+            let top_row_byte = row_as_byte(problem.highest_occupied_row, &problem.matrix);
+            let hit_key = LastHitKey{
+                rock_index: rock_idx, 
+                jet_index: problem.current_jet_index, 
+                top_row_byte
+            };
+
+            // record height
+            let height = problem.tower_height();
+            let new_hit_value = LastHitValue { rock_count: total_rock_count, tower_height: height };
+            let prev_hit_maybe = height_history.insert(hit_key.clone(), new_hit_value.clone());
+
+            if let Some(prev_hit_value) = prev_hit_maybe {
+                println!(
+                    "replaced hit {:?}: prev {:?} -> new {:?} height delta {} rock delta {}",
+                    hit_key,
+                    prev_hit_value,
+                    new_hit_value,
+                    new_hit_value.tower_height - prev_hit_value.tower_height,
+                    new_hit_value.rock_count - prev_hit_value.rock_count
+                );
+            }
+        }
+
+        total_rock_count += 1;
     }
+
+    for (k, v) in height_history {
+        println!("{k:?} => {v:?}");
+    }
+
     println!("height: {}", problem.tower_height());
     println!("jet pattern length: {}", jet_pattern.len());
     let repeat_length = test_row_ranges(
