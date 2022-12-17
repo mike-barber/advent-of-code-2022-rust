@@ -277,12 +277,35 @@ fn test_row_ranges(min: usize, start_offset: usize, matrix: &ProblemMatrix) -> u
         let b_start = start_offset + len;
         let b = (0..len).map(|i| row_as_byte(b_start + i, matrix));
 
-        if iter::zip(a, b).all(|(a, b)| a == b) {
+        if iter_all(a,b,|(a,b)| a==b) {
             println!("len = {len}");
             return len;
         }
     }
     panic!("no elements matched");
+}
+
+// zip doesn't cover the case where one iterator is shorter than the other
+fn iter_all<A, B, T, F>(left: A, right: B, predicate: F) -> bool
+where
+    A: IntoIterator<Item = T>,
+    B: IntoIterator<Item = T>,
+    F: Fn((T, T)) -> bool,
+{
+    // TODO: just use itertools::equal
+
+    let mut iter_a = left.into_iter();
+    let mut iter_b = right.into_iter();
+    if !iter::zip(&mut iter_a, &mut iter_b).all(predicate) {
+        return false;
+    }
+
+    if iter_a.next().or(iter_b.next()).is_some() {
+        // iterators are different lengths, so they're not equal
+        return false;
+    }
+
+    return true;
 }
 
 fn scratch() {
@@ -301,8 +324,6 @@ fn scratch() {
     //     problem.highest_occupied_row,
     //     &problem.matrix,
     // );
-
-    
 }
 
 #[cfg(test)]
