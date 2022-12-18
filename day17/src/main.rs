@@ -212,8 +212,6 @@ impl Display for Problem {
 }
 
 fn main() -> AnyResult<()> {
-    demo();
-
     let jet_pattern = parse_input(&read_file("day17/input.txt")?)?;
     println!("pattern length: {}", jet_pattern.len());
 
@@ -223,6 +221,7 @@ fn main() -> AnyResult<()> {
     Ok(())
 }
 
+#[allow(dead_code)]
 fn demo() {
     let jet_pattern = parse_input(TEST_INPUT).unwrap();
     let mut problem = Problem::new(8);
@@ -313,11 +312,11 @@ impl History {
 }
 
 fn part2(jet_pattern: &[JetIndex]) -> usize {
+    const TARGET_ROCKS: usize = 1000000000000;
+    
     let mut jets_iter = jet_pattern.iter().cycle().copied();
     let mut problem = Problem::new(8);
     let mut history = History::default();
-
-    let target_rocks = 1000000000000;
 
     let mut found_cycle = None;
     for (rock_mod, rock) in ROCKS.iter().enumerate().cycle() {
@@ -346,13 +345,12 @@ fn part2(jet_pattern: &[JetIndex]) -> usize {
 
     // now we know that the pattern repeats ad-infinitum, so we can skip
     // all the intermediate steps and work out the final height.
-    let rocks_remaining = target_rocks - found_cycle.at_rock;
+    let rocks_remaining = TARGET_ROCKS - found_cycle.at_rock;
     let cycles = rocks_remaining / found_cycle.num_rocks;
     let remainder = rocks_remaining % found_cycle.num_rocks;
 
     // continue running the problem over the remaining rocks, adding height
     // from the remainder rocks
-    dbg!(remainder);
     for rock in ROCKS.iter().cycle().take(remainder) {
         problem = problem.drop_rock(rock, &mut jets_iter);
     }
