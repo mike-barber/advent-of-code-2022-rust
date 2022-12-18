@@ -22,7 +22,7 @@ fn parse_input(input: &str) -> Vec<Pos> {
     input
         .lines()
         .map(|l| {
-            let a = l.split(',').map(str::parse::<i32>).flatten();
+            let a = l.split(',').flat_map(str::parse::<i32>);
             Array1::from_iter(a)
         })
         .collect()
@@ -45,24 +45,16 @@ fn max_dims(vals: &[Pos]) -> Option<Pos> {
     Some(res)
 }
 
+fn space_shape(space: &Array3<i32>) -> Ix3 {
+    let shape = space.shape();
+    Dim([shape[0], shape[1], shape[2]])
+}
+
 fn to_addr(pos: &Pos) -> Ix3 {
     Dim([pos[0] as usize, pos[1] as usize, pos[2] as usize])
 }
 
-fn to_addr_checked(pos: &Pos, shape: &[usize]) -> Option<Ix3> {
-    if pos[0] < 0 || pos[1] < 0 || pos[2] < 0 {
-        return None;
-    }
-    let pos_usize = [pos[0] as usize, pos[1] as usize, pos[2] as usize];
-    for i in 0..3 {
-        if pos_usize[i] >= shape[i] {
-            return None;
-        }
-    }
-    Some(Dim(pos_usize))
-}
-
-fn add_address_checked(addr: Ix3, offset: [isize; 3], shape: [usize; 3]) -> Option<Ix3> {
+fn add_address_checked(addr: Ix3, offset: [isize; 3], shape: Ix3) -> Option<Ix3> {
     fn add_signed(x: usize, y: isize) -> Option<usize> {
         let v = x as isize + y;
         if v < 0 {
@@ -85,64 +77,16 @@ fn add_address_checked(addr: Ix3, offset: [isize; 3], shape: [usize; 3]) -> Opti
 }
 
 fn count_neighbours(space: &Array3<i32>, pos: &Pos) -> usize {
+    let shape = space_shape(space);
     let mut neighbours = 0;
-    for dim in 0..3 {
-        for ofs in [-1, 1] {
-            let mut p = pos.clone();
-            p[dim] += ofs;
-
-            if let Some(addr) = to_addr_checked(&p, space.shape()) {
-                if space[addr] == 1 {
-                    neighbours += 1;
-                }
+    for offset in &NEIGHBOUR_OFFSETS {
+        if let Some(addr) = add_address_checked(to_addr(pos), *offset, shape) {
+            if space[addr] == 1 {
+                neighbours += 1;
             }
         }
     }
     neighbours
-}
-
-fn count_open_faces_part2_simple(space: &Array3<i32>, pos: &Pos) -> usize {
-    let mut empty_faces = 0;
-    for dim in 0..3 {
-        for offset in [-1, 1] {
-            let mut test_pos = pos.clone();
-            test_pos[dim] += offset;
-
-            if let Some(addr) = to_addr_checked(&test_pos, space.shape()) {
-                // if the cell is empty, check that it has at least one open
-                // space (i.e. not completely enclosed)
-                if space[addr] == 0 {
-                    let space_neighbours = count_neighbours(space, &test_pos);
-                    if space_neighbours < 6 {
-                        empty_faces += 1;
-                    }
-                }
-            } else {
-                // also open space - edge of grid
-                empty_faces += 1;
-            }
-        }
-    }
-    empty_faces
-}
-
-fn count_open_faces_part2_filled(
-    space: &Array3<i32>,
-    exterior_reachable: &Array3<i32>,
-    pos: &Pos,
-) -> usize {
-    let shape = space.shape();
-    let shape = [shape[0], shape[1], shape[2]];
-
-    let mut empty_faces = 0;
-    for offset in NEIGHBOUR_OFFSETS {
-        if let Some(addr) = add_address_checked(to_addr(pos), offset, shape) {
-            if space[addr] == 0 && exterior_reachable[addr] < DIST_NOT_FOUND {
-                empty_faces += 1;
-            }
-        }
-    }
-    empty_faces
 }
 
 fn part1(points: &[Pos]) -> Option<usize> {
@@ -172,36 +116,9 @@ fn part1(points: &[Pos]) -> Option<usize> {
     Some(surface_area)
 }
 
-// assuming air pockets are single, and not joined initially
-fn part2_simple(points: &[Pos]) -> Option<usize> {
-    // create space matrix
-    let extents = max_dims(points)?;
-    // create empty space around right and bottom edge for fill
-    let shape = [
-        extents[0] as usize + 2,
-        extents[1] as usize + 2,
-        extents[2] as usize + 2,
-    ];
-    let mut space: Array3<i32> = Array3::zeros(shape);
-
-    // place all the points
-    for p in points.iter() {
-        let ix = to_addr(p);
-        space[ix] = 1;
-    }
-
-    // find all open surfaces
-    let mut surface_area = 0;
-    for p in points.iter() {
-        let open_faces = count_open_faces_part2_simple(&space, p);
-        surface_area += open_faces;
-    }
-
-    Some(surface_area)
-}
-
-// fill reachable space, then consider which points have faces to it
-fn part2_filled(points: &[Pos]) -> Option<usize> {
+/// Fill reachable space, then consider which points have faces onto the filled
+/// region
+fn part2(points: &[Pos]) -> Option<usize> {
     // create space matrix
     let extents = max_dims(points)?;
 
@@ -229,15 +146,8 @@ fn part2_filled(points: &[Pos]) -> Option<usize> {
     // find all open surfaces
     let mut surface_area = 0;
     for p in points.iter() {
-        let open_faces = count_open_faces_part2_filled(&space, &exterior_reachable, p);
+        let open_faces = count_open_faces_to_filled(&space, &exterior_reachable, p);
         surface_area += open_faces;
-    }
-
-    // print filled region
-    for z in 0..shape[2] {
-        let plane = exterior_reachable.slice(s![.., .., z]);
-        println!("z = {z}");
-        println!("{plane}");
     }
 
     Some(surface_area)
@@ -245,8 +155,7 @@ fn part2_filled(points: &[Pos]) -> Option<usize> {
 
 // essentially Dijkstra again
 fn fill_reachable_space(space: &Array3<i32>) -> Array3<i32> {
-    let shape = space.shape();
-    let shape = [shape[0], shape[1], shape[2]];
+    let shape = space_shape(space);
     let mut dist: Array3<i32> = Array3::zeros(shape);
 
     // initialise problem
@@ -293,17 +202,39 @@ fn fill_reachable_space(space: &Array3<i32>) -> Array3<i32> {
         }
     }
 
+    // // print filled region
+    // for z in 0..shape[2] {
+    //     let plane = dist.slice(s![.., .., z]);
+    //     println!("z = {z}");
+    //     println!("{plane}");
+    // }
+
     dist
+}
+
+fn count_open_faces_to_filled(
+    space: &Array3<i32>,
+    exterior_reachable: &Array3<i32>,
+    pos: &Pos,
+) -> usize {
+    let shape = space_shape(space);
+
+    let mut empty_faces = 0;
+    for offset in NEIGHBOUR_OFFSETS {
+        if let Some(addr) = add_address_checked(to_addr(pos), offset, shape) {
+            if space[addr] == 0 && exterior_reachable[addr] < DIST_NOT_FOUND {
+                empty_faces += 1;
+            }
+        }
+    }
+    empty_faces
 }
 
 fn main() -> anyhow::Result<()> {
     let points = parse_input(&read_file("day18/input.txt")?);
 
     println!("part1 result = {:?}", part1(&points));
-    println!("part2 simple result = {:?}", part2_simple(&points));
-    println!("part2 filled result = {:?}", part2_filled(&points));
-    println!("note: 3402 is wrong -- it's too high!");
-    println!("note: 2063 is wrong -- it's too low!");
+    println!("part2 result = {:?}", part2(&points));
 
     Ok(())
 }
@@ -346,16 +277,9 @@ mod tests {
     }
 
     #[test]
-    fn part2_simple_correct() {
+    fn part2_correct() {
         let input = parse_input(TEST_INPUT);
-        let res = part2_simple(&input).unwrap();
-        assert_eq!(res, 58);
-    }
-
-    #[test]
-    fn part2_filled_correct() {
-        let input = parse_input(TEST_INPUT);
-        let res = part2_filled(&input).unwrap();
+        let res = part2(&input).unwrap();
         assert_eq!(res, 58);
     }
 }
