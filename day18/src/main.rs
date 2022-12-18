@@ -1,16 +1,65 @@
-use itertools::Itertools;
 use nalgebra::Vector3;
+use ndarray::prelude::*;
+use ndarray::Array1;
+use ndarray::Shape;
 
-type Pos = Vector3<i32>;
+type Pos = Array1<i32>;
 
-fn parse_input(input: &str) -> Vec<Pos> {
+fn parse_input2(input: &str) -> Vec<Pos> {
     input
         .lines()
         .map(|l| {
             let a = l.split(',').map(str::parse::<i32>).flatten();
-            Vector3::from_iterator(a)
+            Array1::from_iter(a)
         })
         .collect()
+}
+
+fn max_dims(vals: &[Pos]) -> Option<Pos> {
+    let mut iter = vals.iter();
+
+    let first = iter.next()?;
+    let acc = first.clone();
+    let res = iter.fold(acc, |mut acc, v| {
+        acc.zip_mut_with(v, |a, b| {
+            let av = *a;
+            let bv = *b;
+            *a = av.max(bv);
+        });
+        acc
+    });
+
+    Some(res)
+}
+
+fn to_addr(pos: &Pos) -> Ix3 {
+    Dim([pos[0] as usize, pos[1] as usize, pos[2] as usize])
+}
+
+fn count_neighbours(space: &Array3<i32>, pos: &Pos) {
+
+}
+
+fn part1(points: &[Pos]) -> Option<usize> {
+    // create space matrix
+    let extents = max_dims(points)?;
+    let shape = [
+        extents[0] as usize,
+        extents[1] as usize,
+        extents[2] as usize,
+    ];
+    let mut space: Array3<i32> = Array3::zeros(shape);
+
+    // place all the points
+    for p in points.iter() {
+        let ix = to_addr(p);
+        space[ix] = 1;
+    }
+
+
+
+
+    todo!();
 }
 
 fn main() {
@@ -19,8 +68,8 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use indoc::indoc;
     use super::*;
+    use indoc::indoc;
 
     const TEST_INPUT: &str = indoc! {"
         2,2,2
@@ -39,8 +88,11 @@ mod tests {
     "};
 
     #[test]
-    fn parse_input_correct() {
-        let input = parse_input(TEST_INPUT);
+    fn parse_input_correct2() {
+        let input = parse_input2(TEST_INPUT);
+        for i in &input {
+            println!("{i}");
+        }
         assert_eq!(input.len(), 13);
     }
 }
