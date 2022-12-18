@@ -65,6 +65,33 @@ fn count_neighbours(space: &Array3<i32>, pos: &Pos) -> usize {
     neighbours
 }
 
+fn count_open_faces_part2(space: &Array3<i32>, pos: &Pos) -> usize {
+    let mut empty_faces = 0;
+    for dim in 0..3 {
+        for offset in [-1, 1] {
+            let mut test_pos = pos.clone();
+            test_pos[dim] += offset;
+
+            if let Some(addr) = to_addr_checked(&test_pos, space.shape()) {
+                // if the cell is empty, check that it has at least one open
+                // space (i.e. not completely enclosed)
+                if space[addr] == 0 {
+                    let space_neighbours = count_neighbours(space, &test_pos);
+                    if space_neighbours < 6 {
+                        empty_faces += 1;
+                    } else {
+                        println!("enclosed point: {test_pos}");
+                    }
+                }
+            } else {
+                // also open space - edge of grid
+                empty_faces += 1;
+            }
+        }
+    }
+    empty_faces
+}
+
 fn part1(points: &[Pos]) -> Option<usize> {
     // create space matrix
     let extents = max_dims(points)?;
@@ -92,10 +119,39 @@ fn part1(points: &[Pos]) -> Option<usize> {
     Some(surface_area)
 }
 
+// assuming air pockets are single, and not joined initially
+fn part2(points: &[Pos]) -> Option<usize> {
+    // create space matrix
+    let extents = max_dims(points)?;
+    let shape = [
+        extents[0] as usize + 1,
+        extents[1] as usize + 1,
+        extents[2] as usize + 1,
+    ];
+    let mut space: Array3<i32> = Array3::zeros(shape);
+
+    // place all the points
+    for p in points.iter() {
+        let ix = to_addr(p);
+        space[ix] = 1;
+    }
+
+    // find all open surfaces
+    let mut surface_area = 0;
+    for p in points.iter() {
+        let open_faces = count_open_faces_part2(&space, p);
+        surface_area += open_faces;
+    }
+
+    Some(surface_area)
+}
+
 fn main() -> anyhow::Result<()> {
     let points = parse_input(&read_file("day18/input.txt")?);
 
     println!("part1 result = {:?}", part1(&points));
+    println!("part2 result = {:?}", part2(&points));
+    println!("note: 3402 is wrong -- it's too high");
 
     Ok(())
 }
@@ -135,5 +191,12 @@ mod tests {
         let input = parse_input(TEST_INPUT);
         let res = part1(&input).unwrap();
         assert_eq!(res, 64);
+    }
+
+    #[test]
+    fn part2_correct() {
+        let input = parse_input(TEST_INPUT);
+        let res = part2(&input).unwrap();
+        assert_eq!(res, 58);
     }
 }
