@@ -1,4 +1,7 @@
+use std::ops::Add;
+
 use common::*;
+use itertools::Itertools;
 use ndarray::prelude::*;
 use ndarray::Array1;
 use priority_queue::PriorityQueue;
@@ -59,7 +62,7 @@ fn to_addr_checked(pos: &Pos, shape: &[usize]) -> Option<Ix3> {
     Some(Dim(pos_usize))
 }
 
-fn add_address_checked(addr: Ix3, offset: [isize;3], shape:[usize;3]) -> Option<Ix3> {
+fn add_address_checked(addr: Ix3, offset: [isize; 3], shape: [usize; 3]) -> Option<Ix3> {
     fn add_signed(x: usize, y: isize) -> Option<usize> {
         let v = x as isize + y;
         if v < 0 {
@@ -67,7 +70,7 @@ fn add_address_checked(addr: Ix3, offset: [isize;3], shape:[usize;3]) -> Option<
         }
         Some(v as usize)
     }
-    
+
     let new_addr = [
         add_signed(addr[0], offset[0])?,
         add_signed(addr[1], offset[1])?,
@@ -112,7 +115,7 @@ fn count_open_faces_part2_simple(space: &Array3<i32>, pos: &Pos) -> usize {
                     let space_neighbours = count_neighbours(space, &test_pos);
                     if space_neighbours < 6 {
                         empty_faces += 1;
-                    } 
+                    }
                 }
             } else {
                 // also open space - edge of grid
@@ -123,7 +126,11 @@ fn count_open_faces_part2_simple(space: &Array3<i32>, pos: &Pos) -> usize {
     empty_faces
 }
 
-fn count_open_faces_part2_filled(space: &Array3<i32>, exterior_reachable: &Array3<i32>, pos: &Pos) -> usize {
+fn count_open_faces_part2_filled(
+    space: &Array3<i32>,
+    exterior_reachable: &Array3<i32>,
+    pos: &Pos,
+) -> usize {
     let shape = space.shape();
     let shape = [shape[0], shape[1], shape[2]];
 
@@ -165,8 +172,6 @@ fn part1(points: &[Pos]) -> Option<usize> {
     Some(surface_area)
 }
 
-
-
 // assuming air pockets are single, and not joined initially
 fn part2_simple(points: &[Pos]) -> Option<usize> {
     // create space matrix
@@ -199,13 +204,18 @@ fn part2_simple(points: &[Pos]) -> Option<usize> {
 fn part2_filled(points: &[Pos]) -> Option<usize> {
     // create space matrix
     let extents = max_dims(points)?;
-    // create empty space around right and bottom edge for fill
+
+    // +1 for index; +2 for space around all the edges for filling
     let shape = [
-        extents[0] as usize + 2,
-        extents[1] as usize + 2,
-        extents[2] as usize + 2,
+        extents[0] as usize + 3,
+        extents[1] as usize + 3,
+        extents[2] as usize + 3,
     ];
     let mut space: Array3<i32> = Array3::zeros(shape);
+
+    // move all the points so they're away from the edges
+    let offset = array![1, 1, 1];
+    let points = points.iter().map(|p| p.add(&offset)).collect_vec();
 
     // place all the points
     for p in points.iter() {
@@ -223,9 +233,15 @@ fn part2_filled(points: &[Pos]) -> Option<usize> {
         surface_area += open_faces;
     }
 
+    // print filled region
+    for z in 0..shape[2] {
+        let plane = exterior_reachable.slice(s![.., .., z]);
+        println!("z = {z}");
+        println!("{plane}");
+    }
+
     Some(surface_area)
 }
-
 
 // essentially Dijkstra again
 fn fill_reachable_space(space: &Array3<i32>) -> Array3<i32> {
@@ -258,7 +274,7 @@ fn fill_reachable_space(space: &Array3<i32>) -> Array3<i32> {
                 continue;
             }
             let v = v.unwrap();
-            
+
             // skip nodes that are part of the lava lump
             if space[v] == 1 {
                 continue;
@@ -339,7 +355,7 @@ mod tests {
     #[test]
     fn part2_filled_correct() {
         let input = parse_input(TEST_INPUT);
-        let res = part2_simple(&input).unwrap();
+        let res = part2_filled(&input).unwrap();
         assert_eq!(res, 58);
     }
 }
