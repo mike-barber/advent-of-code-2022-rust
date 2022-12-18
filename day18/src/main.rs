@@ -45,11 +45,6 @@ fn max_dims(vals: &[Pos]) -> Option<Pos> {
     Some(res)
 }
 
-fn space_shape(space: &Array3<i32>) -> Ix3 {
-    let shape = space.shape();
-    Dim([shape[0], shape[1], shape[2]])
-}
-
 fn to_addr(pos: &Pos) -> Ix3 {
     Dim([pos[0] as usize, pos[1] as usize, pos[2] as usize])
 }
@@ -77,7 +72,7 @@ fn add_address_checked(addr: Ix3, offset: [isize; 3], shape: Ix3) -> Option<Ix3>
 }
 
 fn count_neighbours(space: &Array3<i32>, pos: &Pos) -> usize {
-    let shape = space_shape(space);
+    let shape = space.raw_dim();
     let mut neighbours = 0;
     for offset in &NEIGHBOUR_OFFSETS {
         if let Some(addr) = add_address_checked(to_addr(pos), *offset, shape) {
@@ -91,12 +86,8 @@ fn count_neighbours(space: &Array3<i32>, pos: &Pos) -> usize {
 
 fn part1(points: &[Pos]) -> Option<usize> {
     // create space matrix
-    let extents = max_dims(points)?;
-    let shape = [
-        extents[0] as usize + 1,
-        extents[1] as usize + 1,
-        extents[2] as usize + 1,
-    ];
+    let extents = max_dims(points)? + 1;
+    let shape = to_addr(&extents);
     let mut space: Array3<i32> = Array3::zeros(shape);
 
     // place all the points
@@ -119,15 +110,9 @@ fn part1(points: &[Pos]) -> Option<usize> {
 /// Fill reachable space, then consider which points have faces onto the filled
 /// region
 fn part2(points: &[Pos]) -> Option<usize> {
-    // create space matrix
-    let extents = max_dims(points)?;
-
-    // +1 for index; +2 for space around all the edges for filling
-    let shape = [
-        extents[0] as usize + 3,
-        extents[1] as usize + 3,
-        extents[2] as usize + 3,
-    ];
+    // create space matrix: +1 for index; +2 for space around all the edges for filling
+    let extents = max_dims(points)? + 3;
+    let shape = to_addr(&extents);
     let mut space: Array3<i32> = Array3::zeros(shape);
 
     // move all the points so they're away from the edges
@@ -155,7 +140,7 @@ fn part2(points: &[Pos]) -> Option<usize> {
 
 // essentially Dijkstra again
 fn fill_reachable_space(space: &Array3<i32>) -> Array3<i32> {
-    let shape = space_shape(space);
+    let shape = space.raw_dim();
     let mut dist: Array3<i32> = Array3::zeros(shape);
 
     // initialise problem
@@ -217,7 +202,7 @@ fn count_open_faces_to_filled(
     exterior_reachable: &Array3<i32>,
     pos: &Pos,
 ) -> usize {
-    let shape = space_shape(space);
+    let shape = space.raw_dim();
 
     let mut empty_faces = 0;
     for offset in NEIGHBOUR_OFFSETS {
