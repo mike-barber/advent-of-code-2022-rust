@@ -126,6 +126,7 @@ dependencies = [
  "indoc",
  "itertools",
  "ndarray",
+ "priority-queue",
  "regex",
 ]
 
