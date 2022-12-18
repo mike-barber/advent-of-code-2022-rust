@@ -99,7 +99,7 @@ fn check_all_bidirectional(problem: &Problem) -> AnyResult<()> {
     for (code, valve) in valves {
         for connected in valve.connects_to.iter() {
             let other = valves.get(connected).ok_anyhow()?;
-            if !other.connects_to.contains(&code) {
+            if !other.connects_to.contains(code) {
                 bail!("Valve {connected} does not connect back to {code}");
             }
         }
@@ -318,7 +318,7 @@ fn part2(problem: &Problem) -> i32 {
     let remaining_potential = problem.valves.values().map(|v| v.rate).sum();
     explore_most_flow_dual(
         problem,
-        &mut &mut best_found,
+        &mut best_found,
         [start, start],
         remaining_potential,
         &ArrayVec::default(),

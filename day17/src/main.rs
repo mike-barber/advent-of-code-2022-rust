@@ -1,12 +1,9 @@
 use anyhow::anyhow;
 use common::*;
 use indoc::indoc;
-use nalgebra::{dmatrix, Const, DMatrix, DVectorSlice, Dynamic, OMatrix};
-use std::{
-    collections::HashMap,
-    fmt::{Display, Write},
-    iter,
-};
+use itertools::Itertools;
+use nalgebra::{dmatrix, Const, DMatrix, Dynamic, OMatrix};
+use std::fmt::{Display, Write};
 
 use lazy_static::lazy_static;
 
@@ -91,10 +88,7 @@ impl Problem {
     fn initial_position(&self, rock: &RockMatrix) -> Option<(usize, usize)> {
         let rock_height = rock.nrows();
         let highest = self.highest_occupied_row;
-        match highest.checked_sub(rock_height + 3) {
-            Some(row) => Some((row, 2)),
-            None => None,
-        }
+        highest.checked_sub(rock_height + 3).map(|row| (row, 2))
     }
 
     fn try_move(
@@ -196,10 +190,6 @@ impl Problem {
     fn tower_height(&self) -> usize {
         self.matrix.nrows() - self.highest_occupied_row
     }
-
-    fn row_from_height(&self, height: usize) -> usize {
-        self.matrix.nrows() - height
-    }
 }
 impl Display for Problem {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -225,11 +215,10 @@ fn main() -> AnyResult<()> {
     demo();
 
     let jet_pattern = parse_input(&read_file("day17/input.txt")?)?;
+    println!("pattern length: {}", jet_pattern.len());
+
     println!("part 1 result = {}", part1(&jet_pattern));
-
-    scratch();
-
-    part2(&jet_pattern);
+    println!("part 2 result = {}", part2(&jet_pattern));
 
     Ok(())
 }
@@ -255,77 +244,123 @@ fn part1(jet_pattern: &[JetIndex]) -> usize {
     problem.tower_height()
 }
 
-#[derive(Debug,Clone,PartialEq,Eq,Hash)]
-struct LastHitKey {
-    rock_index: usize,
-    jet_index: usize,
-    top_row_byte: u8
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+struct State {
+    rock_mod: usize,
+    jet_mod: usize,
+    top_row_byte: u8,
 }
 
-#[derive(Debug,Clone)]
-struct LastHitValue {
-    rock_count: usize,
-    tower_height: usize,
+#[derive(Debug, Clone)]
+struct Cycle {
+    at_rock: usize,
+    num_rocks: usize,
+    height_gain: usize,
+}
+
+#[derive(Debug, Clone, Default)]
+struct History {
+    states: Vec<State>,
+    heights: Vec<usize>,
+}
+impl History {
+    fn push(&mut self, state: State, height: usize) {
+        self.states.push(state);
+        self.heights.push(height);
+    }
+
+    fn len(&self) -> usize {
+        self.states.len()
+    }
+
+    // find the second position, skipping first
+    fn positions_earlier_state(&self) -> impl Iterator<Item = usize> + '_ {
+        let state = self.states.last();
+        let positions = self
+            .states
+            .iter()
+            .positions(move |a| Some(a) == state)
+            .rev()
+            .skip(1);
+        positions
+    }
+
+    fn find_cycle(&self) -> Option<Cycle> {
+        let current_pos = self.len() - 1;
+        for earlier_pos in self.positions_earlier_state() {
+            let length = current_pos - earlier_pos;
+
+            // exit condition -- insufficient history for this length
+            // of cycle
+            if self.len() < length + length {
+                break;
+            }
+
+            let a = &self.states[self.len() - length..self.len()];
+            let b = &self.states[self.len() - length - length..self.len() - length];
+            if a == b {
+                let height_delta =
+                    self.heights[self.len() - 1] - self.heights[self.len() - 1 - length];
+                return Some(Cycle {
+                    at_rock: current_pos,
+                    num_rocks: length,
+                    height_gain: height_delta,
+                });
+            }
+        }
+        None
+    }
 }
 
 fn part2(jet_pattern: &[JetIndex]) -> usize {
-    
-    let mut height_history: HashMap<LastHitKey, LastHitValue> = HashMap::new();
-
     let mut jets_iter = jet_pattern.iter().cycle().copied();
     let mut problem = Problem::new(8);
+    let mut history = History::default();
 
-    let mut total_rock_count = 0;
-    for (rock_idx, rock) in ROCKS
-        .iter()
-        .enumerate()
-        .cycle()
-        .take(jet_pattern.len() * ROCKS.len())
-    {
+    let target_rocks = 1000000000000;
+
+    let mut found_cycle = None;
+    for (rock_mod, rock) in ROCKS.iter().enumerate().cycle() {
         problem = problem.drop_rock(rock, &mut jets_iter);
-        
-        // history key
-        if rock_idx == 0 {
-            let top_row_byte = row_as_byte(problem.highest_occupied_row, &problem.matrix);
-            let hit_key = LastHitKey{
-                rock_index: rock_idx, 
-                jet_index: problem.current_jet_index, 
-                top_row_byte
-            };
 
-            // record height
-            let height = problem.tower_height();
-            let new_hit_value = LastHitValue { rock_count: total_rock_count, tower_height: height };
-            let prev_hit_maybe = height_history.insert(hit_key.clone(), new_hit_value.clone());
+        // record history
+        let state = State {
+            rock_mod,
+            jet_mod: problem.current_jet_index,
+            top_row_byte: row_as_byte(problem.highest_occupied_row, &problem.matrix),
+        };
+        let height = problem.tower_height();
+        history.push(state, height);
 
-            if let Some(prev_hit_value) = prev_hit_maybe {
-                println!(
-                    "replaced hit {:?}: prev {:?} -> new {:?} height delta {} rock delta {}",
-                    hit_key,
-                    prev_hit_value,
-                    new_hit_value,
-                    new_hit_value.tower_height - prev_hit_value.tower_height,
-                    new_hit_value.rock_count - prev_hit_value.rock_count
-                );
+        // detect cycle at final rock in the ROCKS array
+        if rock_mod == ROCKS.len() - 1 {
+            if let Some(cycle) = history.find_cycle() {
+                found_cycle = Some(cycle);
+                break;
             }
         }
-
-        total_rock_count += 1;
     }
 
-    for (k, v) in height_history {
-        println!("{k:?} => {v:?}");
+    let found_cycle = found_cycle.unwrap();
+    println!("found cycle: {found_cycle:?}");
+
+    // now we know that the pattern repeats ad-infinitum, so we can skip
+    // all the intermediate steps and work out the final height.
+    let rocks_remaining = target_rocks - found_cycle.at_rock;
+    let cycles = rocks_remaining / found_cycle.num_rocks;
+    let remainder = rocks_remaining % found_cycle.num_rocks;
+
+    // continue running the problem over the remaining rocks, adding height
+    // from the remainder rocks
+    dbg!(remainder);
+    for rock in ROCKS.iter().cycle().take(remainder) {
+        problem = problem.drop_rock(rock, &mut jets_iter);
     }
 
-    println!("height: {}", problem.tower_height());
-    println!("jet pattern length: {}", jet_pattern.len());
-    let repeat_length = test_row_ranges(
-        jet_pattern.len(),
-        problem.highest_occupied_row,
-        &problem.matrix,
-    );
-
-    repeat_length
+    // last row in the cycle is the first row of the remainder, so
+    // substract one for the overlap.
+    let cycle_height = cycles * found_cycle.height_gain - 1;
+    cycle_height + problem.tower_height()
 }
 
 fn row_as_byte(r: usize, matrix: &ProblemMatrix) -> u8 {
@@ -336,63 +371,6 @@ fn row_as_byte(r: usize, matrix: &ProblemMatrix) -> u8 {
         byte |= x << c;
     }
     byte
-}
-
-fn test_row_ranges(min: usize, start_offset: usize, matrix: &ProblemMatrix) -> usize {
-    for len in min.. {
-        let a_start = start_offset;
-        let a = (0..len).map(|i| row_as_byte(a_start + i, matrix));
-
-        let b_start = start_offset + len;
-        let b = (0..len).map(|i| row_as_byte(b_start + i, matrix));
-
-        if iter_all(a, b, |(a, b)| a == b) {
-            println!("len = {len}");
-            return len;
-        }
-    }
-    panic!("no elements matched");
-}
-
-// zip doesn't cover the case where one iterator is shorter than the other
-fn iter_all<A, B, T, F>(left: A, right: B, predicate: F) -> bool
-where
-    A: IntoIterator<Item = T>,
-    B: IntoIterator<Item = T>,
-    F: Fn((T, T)) -> bool,
-{
-    // TODO: just use itertools::equal
-
-    let mut iter_a = left.into_iter();
-    let mut iter_b = right.into_iter();
-    if !iter::zip(&mut iter_a, &mut iter_b).all(predicate) {
-        return false;
-    }
-
-    if iter_a.next().or(iter_b.next()).is_some() {
-        // iterators are different lengths, so they're not equal
-        return false;
-    }
-
-    return true;
-}
-
-fn scratch() {
-    // let jet_pattern = parse_input(TEST_INPUT).unwrap();
-    // let mut jets_iter = jet_pattern.iter().cycle().copied();
-    // let mut problem = Problem::new(8);
-    // for rock in ROCKS.iter().cycle().take(jet_pattern.len() * ROCKS.len()) {
-    //     problem = problem.drop_rock(rock, &mut jets_iter);
-    // }
-    // println!("{problem}");
-    // println!("jet length: {}", jet_pattern.len());
-    // println!("rock length: {}", ROCKS.len());
-
-    // test_row_ranges(
-    //     jet_pattern.len(),
-    //     problem.highest_occupied_row,
-    //     &problem.matrix,
-    // );
 }
 
 #[cfg(test)]
@@ -410,5 +388,12 @@ mod tests {
         let pattern = parse_input(TEST_INPUT).unwrap();
         let res = part1(&pattern);
         assert_eq!(res, 3068);
+    }
+
+    #[test]
+    fn part2_correct() {
+        let pattern = parse_input(TEST_INPUT).unwrap();
+        let res = part2(&pattern);
+        assert_eq!(res, 1514285714288);
     }
 }
