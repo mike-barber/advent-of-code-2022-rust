@@ -194,6 +194,22 @@ pub fn explore_dfs_max(spec: &BlueprintSpec, state: &State, global_best: &mut Op
     }
 }
 
+pub fn part1(blueprints: &[Blueprint]) -> i32 {
+    let mut sum = 0;
+    for bp in blueprints {
+        let spec = bp.to_spec();
+        let mut best = None;
+        explore_dfs_max(&spec, &State::new(), &mut best);
+
+        let id = bp.id;
+        let geodes = best.unwrap().resources[Geode as usize];
+        println!("part id {id} with {geodes} geodes");
+
+        sum += id * geodes;
+    }
+    sum
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{parser::parse_input, *};
@@ -220,5 +236,12 @@ mod tests {
         let best = best.unwrap();
         assert_eq!(best.resources[Geode as usize], 12);
         assert_eq!(best.time, 24);
+    }
+
+    #[test]
+    fn part1_correct() {
+        let blueprints = parse_input(TEST_INPUT).unwrap();
+        let res = part1(&blueprints);
+        assert_eq!(res, 33);
     }
 }
