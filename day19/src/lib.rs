@@ -3,7 +3,13 @@ pub mod parser;
 use arrayvec::ArrayVec;
 use indoc::indoc;
 use nalgebra::Vector4;
-use std::str::FromStr;
+use priority_queue::PriorityQueue;
+use rustc_hash::{FxHashSet, FxHasher};
+use std::{
+    collections::{HashMap, HashSet, VecDeque},
+    hash::{Hash, BuildHasherDefault},
+    str::FromStr,
+};
 use Mineral::*;
 
 pub const TEST_INPUT: &str = indoc! {"
@@ -86,7 +92,7 @@ impl BlueprintSpec {
     }
 }
 
-#[derive(Debug, Clone, Default, Copy, PartialEq, PartialOrd, Hash)]
+#[derive(Debug, Clone, Default, Copy, PartialEq, PartialOrd, Hash, Eq)]
 pub struct State {
     time: usize,
     resources: Vector4<i32>,
@@ -205,6 +211,52 @@ pub fn explore_dfs_max(spec: &BlueprintSpec, state: &State, global_best: &mut Op
     }
 }
 
+pub fn explore_prio_max(spec: &BlueprintSpec) -> Option<State> {
+    let mut global_best = None;
+
+    let mut visited: FxHashSet<State> = HashSet::with_hasher(BuildHasherDefault::<FxHasher>::default());
+    let mut queue: PriorityQueue<State, i32> = PriorityQueue::new();
+
+    let initial = State::new();
+    queue.push(
+        initial,
+        simple_max_potential_geodes(&initial, spec.max_time),
+    );
+    while let Some((v, _prio)) = queue.pop() {
+        // terminal node
+        if v.time == spec.max_time {
+            // update best
+            let best = global_best.get_or_insert(v);
+            if v.resources[Geode as usize] > best.resources[Geode as usize] {
+                global_best.replace(v);
+            }
+            continue;
+        }
+
+        // explore from here
+        for w in possible_states_from(&spec, &v) {
+            if !visited.contains(&w) {
+                visited.insert(w);
+
+                // check if next state _could_ be better than our existing global best; skip if not
+                let max_potential = simple_max_potential_geodes(&w, spec.max_time);
+                if let Some(best) = global_best {
+                    let geodes = best.resources[Geode as usize];
+                    let potential = max_potential;
+                    if potential <= geodes {
+                        continue;
+                    }
+                }
+
+                // otherwise add to queue for exploration
+                queue.push(w, max_potential);
+            }
+        }
+    }
+
+    global_best
+}
+
 pub fn part1(blueprints: &[Blueprint]) -> i32 {
     let mut sum = 0;
     for bp in blueprints {
@@ -256,11 +308,27 @@ mod tests {
     }
 
     #[test]
+    fn part1_blueprint1_prio_correct() {
+        let spec = blueprints()[0].to_spec(TIME_MAX_PART1);
+        let best = explore_prio_max(&spec).unwrap();
+        assert_eq!(best.resources[Geode as usize], 9);
+        assert_eq!(best.time, TIME_MAX_PART1);
+    }
+
+    #[test]
     fn part1_blueprint2_correct() {
         let spec = blueprints()[1].to_spec(TIME_MAX_PART1);
         let mut best = None;
         explore_dfs_max(&spec, &State::new(), &mut best);
         let best = best.unwrap();
+        assert_eq!(best.resources[Geode as usize], 12);
+        assert_eq!(best.time, TIME_MAX_PART1);
+    }
+
+    #[test]
+    fn part1_blueprint2_prio_correct() {
+        let spec = blueprints()[1].to_spec(TIME_MAX_PART1);
+        let best = explore_prio_max(&spec).unwrap();
         assert_eq!(best.resources[Geode as usize], 12);
         assert_eq!(best.time, TIME_MAX_PART1);
     }
