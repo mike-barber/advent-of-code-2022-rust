@@ -3,13 +3,16 @@ pub mod parser;
 use arrayvec::ArrayVec;
 use indoc::indoc;
 use nalgebra::Vector4;
-use std::{arch::x86_64::_MM_GET_ROUNDING_MODE, str::FromStr};
+use std::str::FromStr;
 use Mineral::*;
 
 pub const TEST_INPUT: &str = indoc! {"
     Blueprint 1: Each ore robot costs 4 ore. Each clay robot costs 2 ore. Each obsidian robot costs 3 ore and 14 clay. Each geode robot costs 2 ore and 7 obsidian.
     Blueprint 2: Each ore robot costs 2 ore. Each clay robot costs 3 ore. Each obsidian robot costs 3 ore and 8 clay. Each geode robot costs 3 ore and 12 obsidian.
 "};
+
+const TIME_MAX_PART1: usize = 24;
+const TIME_MAX_PART2: usize = 32;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Mineral {
@@ -41,8 +44,9 @@ pub struct Blueprint {
     pub geode_robot: Cost,
 }
 impl Blueprint {
-    pub fn to_spec(&self) -> BlueprintSpec {
+    pub fn to_spec(&self, max_time: usize) -> BlueprintSpec {
         BlueprintSpec {
+            max_time,
             ore_robot: self.ore_robot.to_spec(),
             clay_robot: self.clay_robot.to_spec(),
             obsidian_robot: self.obsidian_robot.to_spec(),
@@ -65,6 +69,7 @@ impl Cost {
 
 #[derive(Debug, Clone, Default, Copy, PartialEq, PartialOrd, Hash)]
 pub struct BlueprintSpec {
+    pub max_time: usize,
     pub ore_robot: Vector4<i32>,
     pub clay_robot: Vector4<i32>,
     pub obsidian_robot: Vector4<i32>,
@@ -147,14 +152,13 @@ pub fn possible_states_from(spec: &BlueprintSpec, state: &State) -> PossibleStat
     possible
 }
 
-const TIME_MAX: usize = 24;
 
 /// Very basic DP condition - estimate the maximum theoretically possible
 /// number of geodes producible at the end of the simulation from this State, 
 /// assuming that we add a new geode factory on every iteration (regardless of 
 /// the number of actual other factories present). Think `s = ut + 1/2at^2`
-pub fn simple_max_potential_geodes(state: &State) -> i32 {
-    let remaining_time = TIME_MAX - state.time;
+pub fn simple_max_potential_geodes(state: &State, max_time: usize) -> i32 {
+    let remaining_time = max_time - state.time;
     let geodes = state.resources[Geode as usize];
     let robots = state.robots[Geode as usize];
 
@@ -168,7 +172,7 @@ pub fn simple_max_potential_geodes(state: &State) -> i32 {
 pub fn explore_dfs_max(spec: &BlueprintSpec, state: &State, global_best: &mut Option<State>) {
     for next_state in possible_states_from(spec, state) {
         // termination and update global best
-        if next_state.time == TIME_MAX {
+        if next_state.time == spec.max_time {
             if let Some(existing_best) = global_best {
                 if next_state.resources[Geode as usize] > existing_best.resources[Geode as usize] {
                     *existing_best = next_state;
@@ -183,7 +187,7 @@ pub fn explore_dfs_max(spec: &BlueprintSpec, state: &State, global_best: &mut Op
         // check if next state _could_ be better than our existing global best; skip if not
         if let Some(existing_best) = global_best{
             let geodes = existing_best.resources[Geode as usize];
-            let potential = simple_max_potential_geodes(&next_state);
+            let potential = simple_max_potential_geodes(&next_state, spec.max_time);
             if potential <= geodes {
                 continue;
             }
@@ -197,17 +201,33 @@ pub fn explore_dfs_max(spec: &BlueprintSpec, state: &State, global_best: &mut Op
 pub fn part1(blueprints: &[Blueprint]) -> i32 {
     let mut sum = 0;
     for bp in blueprints {
-        let spec = bp.to_spec();
+        let spec = bp.to_spec(TIME_MAX_PART1);
         let mut best = None;
         explore_dfs_max(&spec, &State::new(), &mut best);
 
         let id = bp.id;
         let geodes = best.unwrap().resources[Geode as usize];
-        println!("part id {id} with {geodes} geodes");
+        println!("part1 id {id} with {geodes} geodes");
 
         sum += id * geodes;
     }
     sum
+}
+
+pub fn part2(blueprints: &[Blueprint]) -> i32 {
+    let mut product = 1;
+    for bp in blueprints.iter().take(3) {
+        let spec = bp.to_spec(TIME_MAX_PART2);
+        let mut best = None;
+        explore_dfs_max(&spec, &State::new(), &mut best);
+
+        let id = bp.id;
+        let geodes = best.unwrap().resources[Geode as usize];
+        println!("part2 id {id} with {geodes} geodes");
+
+        product *= geodes;
+    }
+    product
 }
 
 #[cfg(test)]
@@ -219,23 +239,23 @@ mod tests {
     }
 
     #[test]
-    fn blueprint1_correct() {
-        let spec = blueprints()[0].to_spec();
+    fn part1_blueprint1_correct() {
+        let spec = blueprints()[0].to_spec(TIME_MAX_PART1);
         let mut best = None;
         explore_dfs_max(&spec, &State::new(), &mut best);
         let best = best.unwrap();
         assert_eq!(best.resources[Geode as usize], 9);
-        assert_eq!(best.time, 24);
+        assert_eq!(best.time, TIME_MAX_PART1);
     }
 
     #[test]
-    fn blueprint2_correct() {
-        let spec = blueprints()[1].to_spec();
+    fn part1_blueprint2_correct() {
+        let spec = blueprints()[1].to_spec(TIME_MAX_PART1);
         let mut best = None;
         explore_dfs_max(&spec, &State::new(), &mut best);
         let best = best.unwrap();
         assert_eq!(best.resources[Geode as usize], 12);
-        assert_eq!(best.time, 24);
+        assert_eq!(best.time, TIME_MAX_PART1);
     }
 
     #[test]
@@ -243,5 +263,25 @@ mod tests {
         let blueprints = parse_input(TEST_INPUT).unwrap();
         let res = part1(&blueprints);
         assert_eq!(res, 33);
+    }
+
+    #[test]
+    fn part2_blueprint1_correct() {
+        let spec = blueprints()[0].to_spec(TIME_MAX_PART2);
+        let mut best = None;
+        explore_dfs_max(&spec, &State::new(), &mut best);
+        let best = best.unwrap();
+        assert_eq!(best.resources[Geode as usize], 56);
+        assert_eq!(best.time, TIME_MAX_PART2);
+    }
+
+    #[test]
+    fn part2_blueprint2_correct() {
+        let spec = blueprints()[1].to_spec(TIME_MAX_PART2);
+        let mut best = None;
+        explore_dfs_max(&spec, &State::new(), &mut best);
+        let best = best.unwrap();
+        assert_eq!(best.resources[Geode as usize], 62);
+        assert_eq!(best.time, TIME_MAX_PART2);
     }
 }
