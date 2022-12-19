@@ -152,10 +152,9 @@ pub fn possible_states_from(spec: &BlueprintSpec, state: &State) -> PossibleStat
     possible
 }
 
-
 /// Very basic DP condition - estimate the maximum theoretically possible
-/// number of geodes producible at the end of the simulation from this State, 
-/// assuming that we add a new geode factory on every iteration (regardless of 
+/// number of geodes producible at the end of the simulation from this State,
+/// assuming that we add a new geode factory on every iteration (regardless of
 /// the number of actual other factories present). Think `s = ut + 1/2at^2`
 pub fn simple_max_potential_geodes(state: &State, max_time: usize) -> i32 {
     let remaining_time = max_time - state.time;
@@ -171,21 +170,29 @@ pub fn simple_max_potential_geodes(state: &State, max_time: usize) -> i32 {
 
 pub fn explore_dfs_max(spec: &BlueprintSpec, state: &State, global_best: &mut Option<State>) {
     for next_state in possible_states_from(spec, state) {
-        // termination and update global best
-        if next_state.time == spec.max_time {
+        // skip if we're almost at termination and have no geode factories
+        if next_state.time == spec.max_time - 1 && next_state.robots[Geode as usize] == 0 {
+            continue;
+        }
+
+        // termination and update global best -- step before final time step; no point exploring
+        // from here, since it is always suboptimal to create a new factory at this stage.
+        if next_state.time == spec.max_time - 1 {
+            // advance to final state
+            let final_state = next_state.advance();
             if let Some(existing_best) = global_best {
-                if next_state.resources[Geode as usize] > existing_best.resources[Geode as usize] {
-                    *existing_best = next_state;
+                if final_state.resources[Geode as usize] > existing_best.resources[Geode as usize] {
+                    *existing_best = final_state;
                 }
             } else {
-                global_best.replace(next_state);
+                global_best.replace(final_state);
             }
 
             continue;
-        } 
+        }
 
         // check if next state _could_ be better than our existing global best; skip if not
-        if let Some(existing_best) = global_best{
+        if let Some(existing_best) = global_best {
             let geodes = existing_best.resources[Geode as usize];
             let potential = simple_max_potential_geodes(&next_state, spec.max_time);
             if potential <= geodes {
