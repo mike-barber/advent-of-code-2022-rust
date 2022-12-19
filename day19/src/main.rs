@@ -1,6 +1,6 @@
 use common::*;
 use day19::parser::parse_input;
-use nalgebra::Vector4;
+//use nalgebra::Vector4;
 
 
 

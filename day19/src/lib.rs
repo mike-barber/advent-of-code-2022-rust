@@ -2,8 +2,8 @@ pub mod parser;
 
 use arrayvec::ArrayVec;
 use indoc::indoc;
-use nalgebra::{Rotation, Vector4};
-use std::str::FromStr;
+use nalgebra::Vector4;
+use std::{arch::x86_64::_MM_GET_ROUNDING_MODE, str::FromStr};
 use Mineral::*;
 
 pub const TEST_INPUT: &str = indoc! {"
@@ -122,7 +122,7 @@ pub fn try_advance_with(spec: &BlueprintSpec, state: &State, new_robot: Mineral)
 
     let mut new_state = State {
         resources: resources_after,
-        .. *state
+        ..*state
     }
     .advance();
     new_state.robots = robots_after;
@@ -147,26 +147,51 @@ pub fn possible_states_from(spec: &BlueprintSpec, state: &State) -> PossibleStat
     possible
 }
 
-const TIME_MAX: usize = 24 - 1;
+const TIME_MAX: usize = 24;
 
-pub fn explore_dfs_max(spec: &BlueprintSpec, initial_state: &State) -> State {
-    //println!("{initial_state:?}");
-    
-    // termination
-    if initial_state.time == TIME_MAX {
-        let state = initial_state.advance();
-        return state;
-    }
+/// Very basic DP condition - estimate the maximum theoretically possible
+/// number of geodes producible at the end of the simulation from this State, 
+/// assuming that we add a new geode factory on every iteration (regardless of 
+/// the number of actual other factories present). Think `s = ut + 1/2at^2`
+pub fn simple_max_potential_geodes(state: &State) -> i32 {
+    let remaining_time = TIME_MAX - state.time;
+    let geodes = state.resources[Geode as usize];
+    let robots = state.robots[Geode as usize];
 
-    // otherwise search
-    let mut best_state = initial_state.clone();
-    for next_state in possible_states_from(spec, initial_state) {
-        let res = explore_dfs_max(spec, &next_state);
-        if res.resources[Geode as usize] > best_state.resources[Geode as usize] {
-            best_state = res
+    let u = robots;
+    let t = remaining_time as i32;
+    let manufactured = u * t + t * (t - 1) / 2;
+
+    geodes + manufactured
+}
+
+pub fn explore_dfs_max(spec: &BlueprintSpec, state: &State, global_best: &mut Option<State>) {
+    for next_state in possible_states_from(spec, state) {
+        // termination and update global best
+        if next_state.time == TIME_MAX {
+            if let Some(existing_best) = global_best {
+                if next_state.resources[Geode as usize] > existing_best.resources[Geode as usize] {
+                    *existing_best = next_state;
+                }
+            } else {
+                global_best.replace(next_state);
+            }
+
+            continue;
+        } 
+
+        // check if next state _could_ be better than our existing global best; skip if not
+        if let Some(existing_best) = global_best{
+            let geodes = existing_best.resources[Geode as usize];
+            let potential = simple_max_potential_geodes(&next_state);
+            if potential <= geodes {
+                continue;
+            }
         }
+
+        // not complete yet; recurse
+        explore_dfs_max(spec, &next_state, global_best);
     }
-    best_state
 }
 
 #[cfg(test)]
@@ -180,8 +205,20 @@ mod tests {
     #[test]
     fn blueprint1_correct() {
         let spec = blueprints()[0].to_spec();
-        let max = explore_dfs_max(&spec, &State::new());
-        assert_eq!(max.resources[Geode as usize], 9);
-        assert_eq!(max.time, 24);
+        let mut best = None;
+        explore_dfs_max(&spec, &State::new(), &mut best);
+        let best = best.unwrap();
+        assert_eq!(best.resources[Geode as usize], 9);
+        assert_eq!(best.time, 24);
+    }
+
+    #[test]
+    fn blueprint2_correct() {
+        let spec = blueprints()[1].to_spec();
+        let mut best = None;
+        explore_dfs_max(&spec, &State::new(), &mut best);
+        let best = best.unwrap();
+        assert_eq!(best.resources[Geode as usize], 12);
+        assert_eq!(best.time, 24);
     }
 }
