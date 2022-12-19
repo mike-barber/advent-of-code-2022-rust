@@ -213,7 +213,7 @@ pub fn part1(blueprints: &[Blueprint]) -> i32 {
         explore_dfs_max(&spec, &State::new(), &mut best);
 
         let id = bp.id;
-        let geodes = best.unwrap().resources[Geode as usize];
+        let geodes = best.map(|b| b.resources[Geode as usize]).unwrap_or(0);
         println!("part1 id {id} with {geodes} geodes");
 
         sum += id * geodes;
