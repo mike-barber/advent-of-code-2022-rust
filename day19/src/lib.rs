@@ -11,7 +11,7 @@ pub const TEST_INPUT: &str = indoc! {"
     Blueprint 2: Each ore robot costs 2 ore. Each clay robot costs 3 ore. Each obsidian robot costs 3 ore and 8 clay. Each geode robot costs 3 ore and 12 obsidian.
 "};
 
-#[derive(Debug,Clone,Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum Mineral {
     Ore = 0,
     Clay = 1,
@@ -97,6 +97,14 @@ impl State {
             ..*self
         }
     }
+
+    pub fn new() -> State {
+        State {
+            time: 0,
+            resources: Vector4::new(0, 0, 0, 0),
+            robots: Vector4::new(1, 0, 0, 0),
+        }
+    }
 }
 
 pub fn try_advance_with(spec: &BlueprintSpec, state: &State, new_robot: Mineral) -> Option<State> {
@@ -104,7 +112,7 @@ pub fn try_advance_with(spec: &BlueprintSpec, state: &State, new_robot: Mineral)
     let resources_after = state.resources - resources_required;
 
     // insufficient resources - not a possible move
-    if resources_after.min() <= 0 {
+    if resources_after.min() < 0 {
         return None;
     }
 
@@ -112,12 +120,13 @@ pub fn try_advance_with(spec: &BlueprintSpec, state: &State, new_robot: Mineral)
     let mut robots_after = state.robots;
     robots_after[new_robot as usize] += 1;
 
-    let new_state = State {
+    let mut new_state = State {
         resources: resources_after,
-        robots: robots_after,
-        ..*state
+        .. *state
     }
     .advance();
+    new_state.robots = robots_after;
+
     Some(new_state)
 }
 
@@ -132,8 +141,47 @@ pub fn possible_states_from(spec: &BlueprintSpec, state: &State) -> PossibleStat
             possible.push(s);
         }
     }
-    
+
     // add time advance with no new robots
     possible.push(state.advance());
     possible
+}
+
+const TIME_MAX: usize = 24 - 1;
+
+pub fn explore_dfs_max(spec: &BlueprintSpec, initial_state: &State) -> State {
+    //println!("{initial_state:?}");
+    
+    // termination
+    if initial_state.time == TIME_MAX {
+        let state = initial_state.advance();
+        return state;
+    }
+
+    // otherwise search
+    let mut best_state = initial_state.clone();
+    for next_state in possible_states_from(spec, initial_state) {
+        let res = explore_dfs_max(spec, &next_state);
+        if res.resources[Geode as usize] > best_state.resources[Geode as usize] {
+            best_state = res
+        }
+    }
+    best_state
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{parser::parse_input, *};
+
+    fn blueprints() -> Vec<Blueprint> {
+        parse_input(TEST_INPUT).unwrap()
+    }
+
+    #[test]
+    fn blueprint1_correct() {
+        let spec = blueprints()[0].to_spec();
+        let max = explore_dfs_max(&spec, &State::new());
+        assert_eq!(max.resources[Geode as usize], 9);
+        assert_eq!(max.time, 24);
+    }
 }
