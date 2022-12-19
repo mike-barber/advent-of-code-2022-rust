@@ -55,13 +55,9 @@ pub fn parse_input(input: &str) -> AnyResult<Vec<Blueprint>> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use indoc::indoc;
+    use crate::TEST_INPUT;
 
-    const TEST_INPUT: &str = indoc! {"
-        Blueprint 1: Each ore robot costs 4 ore. Each clay robot costs 2 ore. Each obsidian robot costs 3 ore and 14 clay. Each geode robot costs 2 ore and 7 obsidian.
-        Blueprint 2: Each ore robot costs 2 ore. Each clay robot costs 3 ore. Each obsidian robot costs 3 ore and 8 clay. Each geode robot costs 3 ore and 12 obsidian.
-    "};
+    use super::*;
 
     #[test]
     fn parse_input_correct2() {
