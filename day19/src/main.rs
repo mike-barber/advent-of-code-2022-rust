@@ -13,8 +13,3 @@ fn main() -> AnyResult<()> {
     
     Ok(())
 }
-
-#[cfg(test)]
-mod tests {
-   
-}
