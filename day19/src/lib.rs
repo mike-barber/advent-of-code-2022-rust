@@ -152,7 +152,7 @@ pub fn possible_states_from(spec: &BlueprintSpec, state: &State) -> PossibleStat
     possible
 }
 
-/// Very basic DP condition - estimate the maximum theoretically possible
+/// Very basic bound condition - estimate the maximum theoretically possible
 /// number of geodes producible at the end of the simulation from this State,
 /// assuming that we add a new geode factory on every iteration (regardless of
 /// the number of actual other factories present). Think `s = ut + 1/2at^2`
