@@ -1,51 +1,88 @@
-use std::collections::VecDeque;
+use std::{ops::Rem, thread::current};
 
-use common::AnyResult;
+use common::{AnyResult, read_file};
 use itertools::Itertools;
 
 fn parse_input(input: &str) -> AnyResult<Vec<i32>> {
-    let vals: Result<Vec<_>,_> = input.lines().map(str::parse::<i32>).collect();
+    let vals: Result<Vec<_>, _> = input.lines().map(str::parse::<i32>).collect();
     Ok(vals?)
 }
 
 fn mix_once(array: &[i32]) -> Vec<i32> {
-    let moves: Vec<_> = array.iter().copied().collect();
-    let mut array: Vec<i32> = array.iter().copied().collect();
-    
-    println!("init: {array:?}");
+    let moves: Vec<_> = array.iter().copied().enumerate().collect();
+    let mut array: Vec<_> = array.iter().copied().enumerate().collect();
 
-    let mut next_index = 0_usize;
-    for m in moves {
-        let target_index = (next_index as i32 + m) as usize % array.len();
-        
-        if target_index > next_index {
-            let range = next_index..=target_index;
-            let slice  = &mut array[range.clone()];
-            println!("  1 before {slice:?}");
-            slice.rotate_left(1);
-            next_index += 1;
-            if range.contains(&next_index) {
-                next_index -= 1;
-            }
-            println!("  1 after {slice:?}");
-        }
-        
-        if next_index > target_index {
-            let slice  = &mut array[target_index..=next_index];
-            println!("  2 before {slice:?}");
-            slice.rotate_right(1);
-            next_index += 2;
-            println!("  2 after {slice:?}");
-        }
-
-        println!("move {m} tgt {target_index} next {next_index} array {array:?}");
+    fn format_array(arr: &[(usize, i32)]) -> String {
+        let mut s = "[".to_string();
+        s.push_str(&arr.iter().map(|(_, v)| v.to_string()).join(" "));
+        s.push(']');
+        s
     }
 
-    array
+    println!("init: {array:?}");
+
+    for (original_index, m) in moves {
+        // println!();
+        // println!("{}: move idx {original_index} by {m}", format_array(&array));
+
+        let current_index = array
+            .iter()
+            .position(|(i, _)| *i == original_index)
+            .unwrap();
+
+        let target_index = if m >= 0 {
+            (current_index as i32 + m).rem(array.len() as i32)
+        } else {
+            (current_index as i32 + m - 1).rem_euclid(array.len() as i32)
+        };
+        let target_index = target_index as usize;
+
+        if target_index > current_index {
+            let range = current_index..=target_index;
+            let slice = &mut array[range.clone()];
+            // println!("  1 before {}", format_array(slice));
+            slice.rotate_left(1);
+            // println!("  1 after  {}", format_array(slice));
+        }
+
+        if current_index > target_index {
+            let slice = &mut array[target_index+1..=current_index];
+            // println!("  2 before {}", format_array(slice));
+            slice.rotate_right(1);
+            // println!("  2 after  {}", format_array(slice));
+        }
+
+        // println!(
+        //     "{}: moved {m} tgt {target_index} curr {current_index}",
+        //     format_array(&array)
+        // );
+    }
+
+    array.iter().map(|(_, v)| v).copied().collect()
 }
 
-fn main() {
+fn part1(array: &[i32]) -> i32 {
+    let mixed = mix_once(array);
     
+    let pos_zero = mixed.iter().position(|a| *a == 0).unwrap();
+
+    let mut sum = 0;
+    for idx in [1000,2000,3000] {
+        let val = mixed.iter().cycle().skip(pos_zero).nth(idx).unwrap();
+        dbg!(val);
+        sum += val;
+    }
+
+    sum
+}
+
+fn main() -> AnyResult<()>{
+    let input = parse_input(&read_file("day20/input.txt")?)?;
+
+    println!("note: -2444 is not correct");
+    println!("part1 result = {}", part1(&input));
+
+    Ok(())
 }
 
 
@@ -73,6 +110,13 @@ mod tests {
     fn basic_mix_correct() {
         let input = parse_input(TEST_INPUT).unwrap();
         let res = mix_once(&input);
-        dbg!(res);
+        assert_eq!(res, [1, 2, -3, 4, 0, 3, -2]);
+    }
+
+    #[test]
+    fn part1_correct() {
+        let input = parse_input(TEST_INPUT).unwrap();
+        let res = part1(&input);
+        assert_eq!(res, 3);
     }
 }
