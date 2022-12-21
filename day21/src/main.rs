@@ -80,8 +80,23 @@ fn calculate(id: &str, monkeys: &Monkeys, values: &mut Values) -> Option<i64> {
 }
 
 fn part1(monkeys: &Monkeys) -> Option<i64> {
-    let mut values: HashMap<&str, i64> = HashMap::new();
+    let mut values: Values = HashMap::new();
     calculate("root", monkeys, &mut values)
+}
+
+fn part2(monkeys: &Monkeys) -> Option<i64> {
+    let root = monkeys.get("root")?;
+    let (left, right) = {
+        if let MonkeyExpr::Operation(_,l,r) = root {
+            (*l,*r)
+        } else {
+            panic!("invalid root")   
+        }
+    };
+
+    let mut values: Values = HashMap::new();
+    calculate("root", monkeys, &mut values)
+
 }
 
 fn main() -> AnyResult<()> {
