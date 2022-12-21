@@ -1,10 +1,10 @@
 use std::{collections::HashMap, str::FromStr};
 
 use anyhow::bail;
-use common::{AnyResult, OptionAnyhow, read_file};
+use common::{read_file, AnyResult, OptionAnyhow};
 use regex::Regex;
 
-#[derive(Debug,Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 enum Op {
     Add,
     Sub,
@@ -25,14 +25,16 @@ impl FromStr for Op {
     }
 }
 
-#[derive(Debug,Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 enum MonkeyExpr<'a> {
-    Literal(i32),
+    Literal(i64),
     Operation(Op, &'a str, &'a str),
 }
 
+type Monkeys<'a> = HashMap<&'a str, MonkeyExpr<'a>>;
+type Values<'a> = HashMap<&'a str, i64>;
 
-fn parse_input(input: &str) -> AnyResult<HashMap<&str, MonkeyExpr>> {
+fn parse_input(input: &str) -> AnyResult<Monkeys> {
     let re_literal = Regex::new(r#"(\w+): (\d+)"#)?;
     let re_expr = Regex::new(r#"(\w+)+: (\w+) ([+\-*/]) (\w+)"#)?;
 
@@ -56,13 +58,40 @@ fn parse_input(input: &str) -> AnyResult<HashMap<&str, MonkeyExpr>> {
     Ok(monkeys)
 }
 
-fn main() -> AnyResult<()>{
-    let contents = read_file("day21/input.txt")?;
-    let input = parse_input(&contents)?;
-    
-    for i in input {
-        println!("{i:?}");
+fn calculate(id: &str, monkeys: &Monkeys, values: &mut Values) -> Option<i64> {
+    if let Some(value) = values.get(id) {
+        return Some(*value);
     }
+    
+    let expr = monkeys.get(id)?;
+    match expr {
+        MonkeyExpr::Literal(v) => Some(*v),
+        MonkeyExpr::Operation(op, l, r) => {
+            let left = values.get(l).copied().or_else(|| calculate(l, monkeys, values))?;
+            let right = values.get(r).copied().or_else(|| calculate(r, monkeys, values))?;
+            Some(match op {
+                Op::Add => left + right,
+                Op::Sub => left - right,
+                Op::Mul => left * right,
+                Op::Div => left / right,
+            })
+        }
+    }
+}
+
+fn part1(monkeys: &Monkeys) -> Option<i64> {
+    let mut values: HashMap<&str, i64> = HashMap::new();
+    calculate("root", monkeys, &mut values)
+}
+
+fn main() -> AnyResult<()> {
+    let contents = read_file("day21/input.txt")?;
+    let monkeys = parse_input(&contents)?;
+    // for i in input {
+    //     println!("{i:?}");
+    // }
+
+    println!("part1 result: {:?}", part1(&monkeys));
 
     Ok(())
 }
@@ -98,12 +127,12 @@ mod tests {
         }
     }
 
-    // #[test]
-    // fn part1_correct() {
-    //     let input = parse_input(TEST_INPUT);
-    //     let res = part1(&input).unwrap();
-    //     assert_eq!(res, 64);
-    // }
+    #[test]
+    fn part1_correct() {
+        let input = parse_input(TEST_INPUT).unwrap();
+        let res = part1(&input).unwrap();
+        assert_eq!(res, 152);
+    }
 
     // #[test]
     // fn part2_correct() {
