@@ -1,6 +1,6 @@
-use std::{ops::Rem, thread::current, cmp::Ordering};
+use std::{cmp::Ordering, ops::Rem, thread::current};
 
-use common::{AnyResult, read_file};
+use common::{read_file, AnyResult};
 use itertools::Itertools;
 
 fn parse_input(input: &str) -> AnyResult<Vec<i32>> {
@@ -46,7 +46,7 @@ fn mix_once(array: &[i32]) -> Vec<i32> {
         }
 
         if current_index > target_index {
-            let slice = &mut array[target_index+1..=current_index];
+            let slice = &mut array[target_index + 1..=current_index];
             // println!("  2 before {}", format_array(slice));
             slice.rotate_right(1);
             // println!("  2 after  {}", format_array(slice));
@@ -61,39 +61,55 @@ fn mix_once(array: &[i32]) -> Vec<i32> {
     array.iter().map(|(_, v)| v).copied().collect()
 }
 
-
-fn permute_positions(moves: &[i32]) -> Vec<usize> {
+fn calculate_permutations(moves: &[i32]) -> Vec<usize> {
     let mut positions: Vec<usize> = (0..moves.len()).collect();
+    println!("{:?}", permute(moves, &positions));
     for (idx, mv) in moves.iter().enumerate() {
         let curr_index = positions.iter().position(|&p| p == idx).unwrap();
         let dest_index = (curr_index as i32 + mv).rem_euclid(moves.len() as i32) as usize;
 
+        println!("move {mv}: {curr_index}->{dest_index}");
         let left = curr_index.min(dest_index);
         let right = curr_index.max(dest_index);
 
-        let slice = &mut positions[left..=right];
         match dest_index.cmp(&curr_index) {
-            Ordering::Less => slice.rotate_right(1),
-            Ordering::Equal => {},
-            Ordering::Greater => slice.rotate_left(1),
+            Ordering::Less => {
+                let slice = &mut positions[left..=right];
+                println!("{:?}", permute(moves, slice));
+                slice.rotate_right(1);
+                println!("{:?}", permute(moves, slice));
+            }
+            Ordering::Equal => {}
+            Ordering::Greater => {
+                let slice = &mut positions[left..=right];
+                println!("{:?}", permute(moves, slice));
+                slice.rotate_left(1);
+                println!("{:?}", permute(moves, slice));
+            }
         }
+
+        println!("{:?}", permute(moves, &positions));
     }
     positions
 }
 
-fn mix_once_permute(array: &[i32]) -> Vec<i32> {
-    let positions = permute_positions(array);
+fn permute(array: &[i32], positions: &[usize]) -> Vec<i32> {
     positions.iter().map(|ix| array[*ix]).collect()
+}
+
+fn mix_once_permute(array: &[i32]) -> Vec<i32> {
+    let positions = calculate_permutations(array);
+    permute(&array, &positions)
 }
 
 fn part1(array: &[i32]) -> i32 {
     //let mixed = mix_once(array);
     let mixed = mix_once_permute(array);
-    
+
     let pos_zero = mixed.iter().position(|a| *a == 0).unwrap();
 
     let mut sum = 0;
-    for idx in [1000,2000,3000] {
+    for idx in [1000, 2000, 3000] {
         let val = mixed.iter().cycle().skip(pos_zero).nth(idx).unwrap();
         dbg!(val);
         sum += val;
@@ -102,7 +118,7 @@ fn part1(array: &[i32]) -> i32 {
     sum
 }
 
-fn main() -> AnyResult<()>{
+fn main() -> AnyResult<()> {
     let input = parse_input(&read_file("day20/input.txt")?)?;
 
     println!("note: -2444 is not correct");
@@ -114,13 +130,12 @@ fn main() -> AnyResult<()>{
 }
 
 fn scratch() {
-    let mut v = vec![0,1,2];
+    let mut v = vec![0, 1, 2];
     println!("{v:?}");
     //v.rotate_left(1);
     v.rotate_right(1);
     println!("{v:?}");
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -140,21 +155,60 @@ mod tests {
     #[test]
     fn permute_positions_correct() {
         // no moves
-        assert_eq!(permute_positions(&[0,0,0,0,0,0]), [0,1,2,3,4,5]);
-        assert_eq!(permute_positions(&[0,0,6,0,0,0]), [0,1,2,3,4,5]);
-        assert_eq!(permute_positions(&[0,0,-6,0,0,0]), [0,1,2,3,4,5]);
+        assert_eq!(
+            calculate_permutations(&[0, 0, 0, 0, 0, 0]),
+            [0, 1, 2, 3, 4, 5]
+        );
+        assert_eq!(
+            calculate_permutations(&[0, 0, 6, 0, 0, 0]),
+            [0, 1, 2, 3, 4, 5]
+        );
+        assert_eq!(
+            calculate_permutations(&[0, 0, -6, 0, 0, 0]),
+            [0, 1, 2, 3, 4, 5]
+        );
         // negative moves
-        assert_eq!(permute_positions(&[0,0,-1,0,0,0]), [0,2,1,3,4,5]);
-        assert_eq!(permute_positions(&[0,0,-2,0,0,0]), [2,0,1,3,4,5]);
-        assert_eq!(permute_positions(&[0,0,-3,0,0,0]), [0,1,3,4,5,2]);
-        assert_eq!(permute_positions(&[0,0,-4,0,0,0]), [0,1,3,4,2,5]);
-        assert_eq!(permute_positions(&[0,0,-5,0,0,0]), [0,1,3,2,4,5]);
+        assert_eq!(
+            calculate_permutations(&[0, 0, -1, 0, 0, 0]),
+            [0, 2, 1, 3, 4, 5]
+        );
+        assert_eq!(
+            calculate_permutations(&[0, 0, -2, 0, 0, 0]),
+            [2, 0, 1, 3, 4, 5]
+        );
+        assert_eq!(
+            calculate_permutations(&[0, 0, -3, 0, 0, 0]),
+            [0, 1, 3, 4, 5, 2]
+        );
+        assert_eq!(
+            calculate_permutations(&[0, 0, -4, 0, 0, 0]),
+            [0, 1, 3, 4, 2, 5]
+        );
+        assert_eq!(
+            calculate_permutations(&[0, 0, -5, 0, 0, 0]),
+            [0, 1, 3, 2, 4, 5]
+        );
         // positive moves
-        assert_eq!(permute_positions(&[0,0,1,0,0,0]), [0,1,3,2,4,5]);
-        assert_eq!(permute_positions(&[0,0,2,0,0,0]), [0,1,3,4,2,5]);
-        assert_eq!(permute_positions(&[0,0,3,0,0,0]), [0,1,3,4,5,2]);
-        assert_eq!(permute_positions(&[0,0,4,0,0,0]), [2,0,1,3,4,5]);
-        assert_eq!(permute_positions(&[0,0,5,0,0,0]), [0,2,1,3,4,5]);
+        assert_eq!(
+            calculate_permutations(&[0, 0, 1, 0, 0, 0]),
+            [0, 1, 3, 2, 4, 5]
+        );
+        assert_eq!(
+            calculate_permutations(&[0, 0, 2, 0, 0, 0]),
+            [0, 1, 3, 4, 2, 5]
+        );
+        assert_eq!(
+            calculate_permutations(&[0, 0, 3, 0, 0, 0]),
+            [0, 1, 3, 4, 5, 2]
+        );
+        assert_eq!(
+            calculate_permutations(&[0, 0, 4, 0, 0, 0]),
+            [2, 0, 1, 3, 4, 5]
+        );
+        assert_eq!(
+            calculate_permutations(&[0, 0, 5, 0, 0, 0]),
+            [0, 2, 1, 3, 4, 5]
+        );
     }
 
     #[test]
