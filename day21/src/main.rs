@@ -62,13 +62,19 @@ fn calculate(id: &str, monkeys: &Monkeys, values: &mut Values) -> Option<i64> {
     if let Some(value) = values.get(id) {
         return Some(*value);
     }
-    
+
     let expr = monkeys.get(id)?;
     match expr {
         MonkeyExpr::Literal(v) => Some(*v),
         MonkeyExpr::Operation(op, l, r) => {
-            let left = values.get(l).copied().or_else(|| calculate(l, monkeys, values))?;
-            let right = values.get(r).copied().or_else(|| calculate(r, monkeys, values))?;
+            let left = values
+                .get(l)
+                .copied()
+                .or_else(|| calculate(l, monkeys, values))?;
+            let right = values
+                .get(r)
+                .copied()
+                .or_else(|| calculate(r, monkeys, values))?;
             Some(match op {
                 Op::Add => left + right,
                 Op::Sub => left - right,
@@ -86,17 +92,60 @@ fn part1(monkeys: &Monkeys) -> Option<i64> {
 
 fn part2(monkeys: &Monkeys) -> Option<i64> {
     let root = monkeys.get("root")?;
-    let (left, right) = {
-        if let MonkeyExpr::Operation(_,l,r) = root {
-            (*l,*r)
+    let (left_id, right_id) = {
+        if let MonkeyExpr::Operation(_, l, r) = root {
+            (*l, *r)
         } else {
-            panic!("invalid root")   
+            panic!("invalid root")
         }
     };
 
+    let mut monkeys = monkeys.clone();
     let mut values: Values = HashMap::new();
-    calculate("root", monkeys, &mut values)
+    // for humn in [0, 100, 200, 300, 301] {
+    //     values.clear();
+    //     monkeys
+    //         .entry("humn")
+    //         .and_modify(|v| *v = MonkeyExpr::Literal(humn));
+    //     let left = calculate(left_id, &monkeys, &mut values);
+    //     let right = calculate(right_id, &monkeys, &mut values);
+    //     println!("humn {humn} left {left:?} right {right:?}");
+    // }
 
+    let mut evaluate_error = |value: i64| -> Option<i64> {
+        values.clear();
+        monkeys
+            .entry("humn")
+            .and_modify(|v| *v = MonkeyExpr::Literal(value));
+        let left = calculate(left_id, &monkeys, &mut values);
+        let right = calculate(right_id, &monkeys, &mut values);
+        Some(left? - right?)
+    };
+    // for humn in 0..100 {
+    //     let error = evaluate_error(humn);
+    //     println!("humn = {humn} error = {error:?}");
+    // }
+
+    let mut x0 = 1637;
+    let mut x1 = x0 + 100;
+    for i in 0.. {
+        let fx0 = evaluate_error(x0).unwrap() as f64;
+        let fx1 = evaluate_error(x1).unwrap() as f64;
+
+        if fx1.abs() < 1e-6 {
+            println!("found {x1} => {fx1}");
+            break;
+        }
+
+        let xn = (x0 as f64 * fx1 - x1 as f64 * fx0) / (fx1 - fx0);
+        
+        x0 = x1;
+        x1 = xn.round() as i64;
+
+        println!("iter {i}; {x0} => {fx1}")
+    }
+
+    Some(x1)
 }
 
 fn main() -> AnyResult<()> {
@@ -107,6 +156,8 @@ fn main() -> AnyResult<()> {
     // }
 
     println!("part1 result: {:?}", part1(&monkeys));
+    println!("part2 result: {:?}", part2(&monkeys));
+    println!("note: 3887609741191 is too high");
 
     Ok(())
 }
@@ -149,10 +200,10 @@ mod tests {
         assert_eq!(res, 152);
     }
 
-    // #[test]
-    // fn part2_correct() {
-    //     let input = parse_input(TEST_INPUT);
-    //     let res = part2(&input).unwrap();
-    //     assert_eq!(res, 58);
-    // }
+    #[test]
+    fn part2_correct() {
+        let input = parse_input(TEST_INPUT).unwrap();
+        let res = part2(&input).unwrap();
+        assert_eq!(res, 301);
+    }
 }
