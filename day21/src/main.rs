@@ -27,12 +27,12 @@ impl FromStr for Op {
 
 #[derive(Debug, Clone, Copy)]
 enum MonkeyExpr<'a> {
-    Literal(i64),
+    Literal(f64),
     Operation(Op, &'a str, &'a str),
 }
 
 type Monkeys<'a> = HashMap<&'a str, MonkeyExpr<'a>>;
-type Values<'a> = HashMap<&'a str, i64>;
+type Values<'a> = HashMap<&'a str, f64>;
 
 fn parse_input(input: &str) -> AnyResult<Monkeys> {
     let re_literal = Regex::new(r#"(\w+): (\d+)"#)?;
@@ -58,7 +58,7 @@ fn parse_input(input: &str) -> AnyResult<Monkeys> {
     Ok(monkeys)
 }
 
-fn calculate(id: &str, monkeys: &Monkeys, values: &mut Values) -> Option<i64> {
+fn calculate(id: &str, monkeys: &Monkeys, values: &mut Values) -> Option<f64> {
     if let Some(value) = values.get(id) {
         return Some(*value);
     }
@@ -87,9 +87,12 @@ fn calculate(id: &str, monkeys: &Monkeys, values: &mut Values) -> Option<i64> {
 
 fn part1(monkeys: &Monkeys) -> Option<i64> {
     let mut values: Values = HashMap::new();
-    calculate("root", monkeys, &mut values)
+    calculate("root", monkeys, &mut values).map(|v| v.round() as i64)
 }
 
+/// Determine value for `humn` such that the root node's left and right 
+/// operands are equal. We do this using the secant method to refine
+/// our `humn` input.
 fn part2(monkeys: &Monkeys) -> Option<i64> {
     let root = monkeys.get("root")?;
     let (left_id, right_id) = {
@@ -100,64 +103,48 @@ fn part2(monkeys: &Monkeys) -> Option<i64> {
         }
     };
 
-    let mut monkeys = monkeys.clone();
-    let mut values: Values = HashMap::new();
-    // for humn in [0, 100, 200, 300, 301] {
-    //     values.clear();
-    //     monkeys
-    //         .entry("humn")
-    //         .and_modify(|v| *v = MonkeyExpr::Literal(humn));
-    //     let left = calculate(left_id, &monkeys, &mut values);
-    //     let right = calculate(right_id, &monkeys, &mut values);
-    //     println!("humn {humn} left {left:?} right {right:?}");
-    // }
+    let humn_initial = match monkeys.get("humn") {
+        Some(MonkeyExpr::Literal(v)) => v,
+        _ => panic!("invalid or missing humn"),
+    };
 
-    let mut evaluate_error = |value: i64| -> Option<i64> {
+    let mut values: Values = HashMap::new();
+    let mut evaluate_error = |value| -> Option<f64> {
         values.clear();
-        monkeys
-            .entry("humn")
-            .and_modify(|v| *v = MonkeyExpr::Literal(value));
-        let left = calculate(left_id, &monkeys, &mut values);
-        let right = calculate(right_id, &monkeys, &mut values);
+        values.insert("humn", value);
+        let left = calculate(left_id, monkeys, &mut values);
+        let right = calculate(right_id, monkeys, &mut values);
         Some(left? - right?)
     };
-    // for humn in 0..100 {
-    //     let error = evaluate_error(humn);
-    //     println!("humn = {humn} error = {error:?}");
-    // }
 
-    let mut x0 = 1637;
-    let mut x1 = x0 + 100;
+    let mut x0 = *humn_initial;
+    let mut x1 = x0 + 100.0;
     for i in 0.. {
-        let fx0 = evaluate_error(x0).unwrap() as f64;
-        let fx1 = evaluate_error(x1).unwrap() as f64;
+        let fx0 = evaluate_error(x0).unwrap();
+        let fx1 = evaluate_error(x1).unwrap();
 
-        if fx1.abs() < 1e-6 {
+        println!("iter {i}; {x1} => {fx1}");
+        if fx1.abs() < 1e-9 {
             println!("found {x1} => {fx1}");
             break;
         }
 
-        let xn = (x0 as f64 * fx1 - x1 as f64 * fx0) / (fx1 - fx0);
-        
-        x0 = x1;
-        x1 = xn.round() as i64;
+        let xn = (x0 * fx1 - x1 * fx0) / (fx1 - fx0);
 
-        println!("iter {i}; {x0} => {fx1}")
+        x0 = x1;
+        x1 = xn;
     }
 
-    Some(x1)
+    Some(x1.round() as i64)
 }
 
 fn main() -> AnyResult<()> {
     let contents = read_file("day21/input.txt")?;
     let monkeys = parse_input(&contents)?;
-    // for i in input {
-    //     println!("{i:?}");
-    // }
 
     println!("part1 result: {:?}", part1(&monkeys));
     println!("part2 result: {:?}", part2(&monkeys));
-    println!("note: 3887609741191 is too high");
+    println!("note: expecting 3887609741189");
 
     Ok(())
 }
