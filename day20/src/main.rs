@@ -61,7 +61,7 @@ fn mix_once(array: &[i32]) -> Vec<i32> {
     array.iter().map(|(_, v)| v).copied().collect()
 }
 
-fn calculate_permutations(moves: &[i32]) -> Vec<usize> {
+fn calculate_permutations_old(moves: &[i32]) -> Vec<usize> {
     let mut positions: Vec<usize> = (0..moves.len()).collect();
     println!("{:?}", permute(moves, &positions));
     for (idx, mv) in moves.iter().enumerate() {
@@ -89,6 +89,40 @@ fn calculate_permutations(moves: &[i32]) -> Vec<usize> {
         }
 
         println!("{:?}", permute(moves, &positions));
+    }
+    positions
+}
+
+fn calculate_permutations(moves: &[i32]) -> Vec<usize> {
+    let len = moves.len();
+    let mut positions: Vec<usize> = (0..moves.len()).collect();
+    // println!("{:?}", permute(moves, &positions));
+    for (idx, mv) in moves.iter().enumerate() {
+        let curr_index = positions.iter().position(|&p| p == idx).unwrap();
+
+        // println!("mv {mv}");
+        if *mv > 0 {
+            for i in 0..*mv {
+                let a = (curr_index as i32 + i).rem_euclid(len as i32) as usize;
+                let b = (curr_index as i32 + i + 1).rem_euclid(len as i32) as usize;
+                positions.swap(a, b);
+                // println!("  {i} {:?}", permute(moves, &positions));
+            }
+        }
+
+        if *mv < 0 {
+            for i in (*mv..0).rev() {
+                let a = (curr_index as i32 + i).rem_euclid(len as i32) as usize;
+                let b = (curr_index as i32 + i + 1).rem_euclid(len as i32) as usize;
+                positions.swap(a, b);
+                // println!("  {i} {:?}", permute(moves, &positions));
+            }
+            if curr_index as i32 + mv < 0 {
+                positions.rotate_left(1);
+            }
+        }
+
+        // println!("{:?}", permute(moves, &positions));
     }
     positions
 }
