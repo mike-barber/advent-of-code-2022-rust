@@ -1,4 +1,4 @@
-use std::{ops::Rem, thread::current};
+use std::{ops::Rem, thread::current, cmp::Ordering};
 
 use common::{AnyResult, read_file};
 use itertools::Itertools;
@@ -61,8 +61,34 @@ fn mix_once(array: &[i32]) -> Vec<i32> {
     array.iter().map(|(_, v)| v).copied().collect()
 }
 
+
+fn permute_positions(moves: &[i32]) -> Vec<usize> {
+    let mut positions: Vec<usize> = (0..moves.len()).collect();
+    for (idx, mv) in moves.iter().enumerate() {
+        let curr_index = positions.iter().position(|&p| p == idx).unwrap();
+        let dest_index = (curr_index as i32 + mv).rem_euclid(moves.len() as i32) as usize;
+
+        let left = curr_index.min(dest_index);
+        let right = curr_index.max(dest_index);
+
+        let slice = &mut positions[left..=right];
+        match dest_index.cmp(&curr_index) {
+            Ordering::Less => slice.rotate_right(1),
+            Ordering::Equal => {},
+            Ordering::Greater => slice.rotate_left(1),
+        }
+    }
+    positions
+}
+
+fn mix_once_permute(array: &[i32]) -> Vec<i32> {
+    let positions = permute_positions(array);
+    positions.iter().map(|ix| array[*ix]).collect()
+}
+
 fn part1(array: &[i32]) -> i32 {
-    let mixed = mix_once(array);
+    //let mixed = mix_once(array);
+    let mixed = mix_once_permute(array);
     
     let pos_zero = mixed.iter().position(|a| *a == 0).unwrap();
 
@@ -82,7 +108,17 @@ fn main() -> AnyResult<()>{
     println!("note: -2444 is not correct");
     println!("part1 result = {}", part1(&input));
 
+    scratch();
+
     Ok(())
+}
+
+fn scratch() {
+    let mut v = vec![0,1,2];
+    println!("{v:?}");
+    //v.rotate_left(1);
+    v.rotate_right(1);
+    println!("{v:?}");
 }
 
 
@@ -102,6 +138,26 @@ mod tests {
     "};
 
     #[test]
+    fn permute_positions_correct() {
+        // no moves
+        assert_eq!(permute_positions(&[0,0,0,0,0,0]), [0,1,2,3,4,5]);
+        assert_eq!(permute_positions(&[0,0,6,0,0,0]), [0,1,2,3,4,5]);
+        assert_eq!(permute_positions(&[0,0,-6,0,0,0]), [0,1,2,3,4,5]);
+        // negative moves
+        assert_eq!(permute_positions(&[0,0,-1,0,0,0]), [0,2,1,3,4,5]);
+        assert_eq!(permute_positions(&[0,0,-2,0,0,0]), [2,0,1,3,4,5]);
+        assert_eq!(permute_positions(&[0,0,-3,0,0,0]), [0,1,3,4,5,2]);
+        assert_eq!(permute_positions(&[0,0,-4,0,0,0]), [0,1,3,4,2,5]);
+        assert_eq!(permute_positions(&[0,0,-5,0,0,0]), [0,1,3,2,4,5]);
+        // positive moves
+        assert_eq!(permute_positions(&[0,0,1,0,0,0]), [0,1,3,2,4,5]);
+        assert_eq!(permute_positions(&[0,0,2,0,0,0]), [0,1,3,4,2,5]);
+        assert_eq!(permute_positions(&[0,0,3,0,0,0]), [0,1,3,4,5,2]);
+        assert_eq!(permute_positions(&[0,0,4,0,0,0]), [2,0,1,3,4,5]);
+        assert_eq!(permute_positions(&[0,0,5,0,0,0]), [0,2,1,3,4,5]);
+    }
+
+    #[test]
     fn parse_input_correct() {
         parse_input(TEST_INPUT).unwrap();
     }
@@ -110,6 +166,13 @@ mod tests {
     fn basic_mix_correct() {
         let input = parse_input(TEST_INPUT).unwrap();
         let res = mix_once(&input);
+        assert_eq!(res, [1, 2, -3, 4, 0, 3, -2]);
+    }
+
+    #[test]
+    fn permute_mix_correct() {
+        let input = parse_input(TEST_INPUT).unwrap();
+        let res = mix_once_permute(&input);
         assert_eq!(res, [1, 2, -3, 4, 0, 3, -2]);
     }
 
