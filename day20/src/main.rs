@@ -155,7 +155,7 @@ fn part1(array: &[i32]) -> i32 {
 fn main() -> AnyResult<()> {
     let input = parse_input(&read_file("day20/input.txt")?)?;
 
-    println!("note: -2444 is not correct");
+    println!("expecting: 13289");
     println!("part1 result = {}", part1(&input));
 
     scratch();
