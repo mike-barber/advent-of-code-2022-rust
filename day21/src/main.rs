@@ -1,7 +1,7 @@
 use std::{collections::HashMap, str::FromStr};
 
 use anyhow::bail;
-use common::{AnyResult, OptionAnyhow};
+use common::{AnyResult, OptionAnyhow, read_file};
 use regex::Regex;
 
 #[derive(Debug,Clone, Copy)]
@@ -34,7 +34,7 @@ enum MonkeyExpr<'a> {
 
 fn parse_input(input: &str) -> AnyResult<HashMap<&str, MonkeyExpr>> {
     let re_literal = Regex::new(r#"(\w+): (\d+)"#)?;
-    let re_expr = Regex::new(r#"(\w+)+: (\w+) ([+-*/]) (\w+)"#)?;
+    let re_expr = Regex::new(r#"(\w+)+: (\w+) ([+\-*/]) (\w+)"#)?;
 
     let mut monkeys = HashMap::new();
     for line in input.lines() {
@@ -56,8 +56,15 @@ fn parse_input(input: &str) -> AnyResult<HashMap<&str, MonkeyExpr>> {
     Ok(monkeys)
 }
 
-fn main() {
-    println!("Hello, world!");
+fn main() -> AnyResult<()>{
+    let contents = read_file("day21/input.txt")?;
+    let input = parse_input(&contents)?;
+    
+    for i in input {
+        println!("{i:?}");
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -85,7 +92,7 @@ mod tests {
 
     #[test]
     fn parse_input_correct() {
-        let input = parse_input(TEST_INPUT);
+        let input = parse_input(TEST_INPUT).unwrap();
         for i in &input {
             println!("{i:?}");
         }
