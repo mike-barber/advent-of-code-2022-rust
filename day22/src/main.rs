@@ -5,6 +5,29 @@ use common::{AnyResult, OptionAnyhow};
 use nalgebra::DMatrix;
 use regex::Regex;
 use BlockType::*;
+use Direction::*;
+
+enum Direction {
+    R,D,L,U
+}
+impl Direction {
+    fn left(self) -> Self {
+        match self {
+            R => U,
+            D => R,
+            L => D,
+            U => L,
+        }
+    }
+    fn right(self) -> Self {
+        match self {
+            R => D,
+            D => L,
+            L => U,
+            U => R,
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 enum Instruction {
@@ -36,6 +59,9 @@ type Map = DMatrix<BlockType>;
 struct Problem {
     map: Map,
     instructions: Vec<Instruction>,
+}
+impl Problem {
+
 }
 
 fn parse_input(input: &str) -> AnyResult<Problem> {
