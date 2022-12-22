@@ -68,3 +68,26 @@ impl Display for BlockType {
 
 pub type Map = DMatrix<BlockType>;
 pub type Pos = (usize, usize);
+
+
+#[cfg(test)]
+mod tests {
+    use indoc::indoc;
+
+    pub const TEST_INPUT: &str = indoc! {"
+            ...#
+            .#..
+            #...
+            ....
+        ...#.......#
+        ........#...
+        ..#....#....
+        ..........#.
+            ...#....
+            .....#..
+            .#......
+            ......#.
+
+        10R5L5R10L4R5L5
+    "};
+}

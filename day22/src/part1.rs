@@ -115,25 +115,8 @@ pub fn run(problem: &Problem) -> usize {
 
 #[cfg(test)]
 mod tests {
+    use crate::tests::TEST_INPUT;
     use super::*;
-    use indoc::indoc;
-
-    const TEST_INPUT: &str = indoc! {"
-            ...#
-            .#..
-            #...
-            ....
-        ...#.......#
-        ........#...
-        ..#....#....
-        ..........#.
-            ...#....
-            .....#..
-            .#......
-            ......#.
-
-        10R5L5R10L4R5L5
-    "};
 
     #[test]
     fn parse_input_correct() {
