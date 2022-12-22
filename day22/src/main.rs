@@ -7,9 +7,12 @@ use regex::Regex;
 use BlockType::*;
 use Direction::*;
 
-#[derive(Debug,Clone,Copy)]
+#[derive(Debug, Clone, Copy)]
 enum Direction {
-    R,D,L,U
+    R,
+    D,
+    L,
+    U,
 }
 impl Direction {
     fn left(&self) -> Self {
@@ -29,12 +32,12 @@ impl Direction {
         }
     }
     // returns row and column
-    fn delta(&self) -> (i32,i32) {
+    fn delta(&self) -> (i32, i32) {
         match self {
-            R => (0,1),
-            D => (1,0),
-            L => (0,-1),
-            U => (-1,0),
+            R => (0, 1),
+            D => (1, 0),
+            L => (0, -1),
+            U => (-1, 0),
         }
     }
 }
@@ -64,7 +67,7 @@ impl Display for BlockType {
 }
 
 type Map = DMatrix<BlockType>;
-type Pos = (usize,usize);
+type Pos = (usize, usize);
 
 #[derive(Debug, Clone)]
 struct Problem {
@@ -73,19 +76,19 @@ struct Problem {
 }
 impl Problem {
     fn find_next(&self, pos: Pos, dir: Direction) -> (BlockType, Pos) {
-        let (dr,dc) = dir.delta();
+        let (dr, dc) = dir.delta();
         let mut r = pos.0 as i32;
         let mut c = pos.1 as i32;
         loop {
-            r += dr.div_euclid(self.map.nrows() as i32);
-            c += dc.div_euclid(self.map.ncols() as i32);
+            r = (r + dr).rem_euclid(self.map.nrows() as i32);
+            c = (c + dc).rem_euclid(self.map.ncols() as i32);
 
-            let new_pos = (r as usize,c as usize);
+            let new_pos = (r as usize, c as usize);
             let block = self.map[new_pos];
             if block != Empty {
-                return (block, new_pos)
+                return (block, new_pos);
             }
-        }    
+        }
     }
 }
 
@@ -140,7 +143,7 @@ fn parse_input(input: &str) -> AnyResult<Problem> {
 fn part1(problem: &Problem) -> usize {
     let mut dir = Direction::R;
     let col = problem.map.row(0).iter().position(|b| *b == Open).unwrap();
-    let mut pos = (0, col); 
+    let mut pos = (0, col);
 
     for inst in problem.instructions.iter() {
         match inst {
@@ -153,20 +156,22 @@ fn part1(problem: &Problem) -> usize {
                         pos = new_pos;
                     }
                 }
-            },
-            Instruction::TurnLeft => { dir = dir.left() },
-            Instruction::TurnRight => { dir = dir.right() },
+            }
+            Instruction::TurnLeft => dir = dir.left(),
+            Instruction::TurnRight => dir = dir.right(),
         }
     }
 
     println!("final position {pos:?} and direction {dir:?}");
-    let score = 1000 * (pos.0 + 1) + 4 * (pos.1 + 1) + match dir {
-        // Facing is 0 for right (>), 1 for down (v), 2 for left (<), and 3 for up (^)
-        R => 0,
-        D => 1,
-        L => 2,
-        U => 3,
-    };
+    let score = 1000 * (pos.0 + 1)
+        + 4 * (pos.1 + 1)
+        + match dir {
+            // Facing is 0 for right (>), 1 for down (v), 2 for left (<), and 3 for up (^)
+            R => 0,
+            D => 1,
+            L => 2,
+            U => 3,
+        };
     score
 }
 
