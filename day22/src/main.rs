@@ -1,7 +1,7 @@
 use std::fmt::{Display, Write};
 
 use anyhow::bail;
-use common::{AnyResult, OptionAnyhow};
+use common::{AnyResult, OptionAnyhow, read_file};
 use nalgebra::DMatrix;
 use regex::Regex;
 use BlockType::*;
@@ -175,8 +175,12 @@ fn part1(problem: &Problem) -> usize {
     score
 }
 
-fn main() {
-    println!("Hello, world!");
+fn main() -> AnyResult<()> {
+    let input = parse_input(&read_file("day22/input.txt")?)?;
+
+    println!("part1 result: {}", part1(&input));
+
+    Ok(())
 }
 
 #[cfg(test)]
