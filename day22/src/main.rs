@@ -7,11 +7,12 @@ use regex::Regex;
 use BlockType::*;
 use Direction::*;
 
+#[derive(Debug,Clone,Copy)]
 enum Direction {
     R,D,L,U
 }
 impl Direction {
-    fn left(self) -> Self {
+    fn left(&self) -> Self {
         match self {
             R => U,
             D => R,
@@ -19,12 +20,21 @@ impl Direction {
             U => L,
         }
     }
-    fn right(self) -> Self {
+    fn right(&self) -> Self {
         match self {
             R => D,
             D => L,
             L => U,
             U => R,
+        }
+    }
+    // returns row and column
+    fn delta(&self) -> (i32,i32) {
+        match self {
+            R => (0,1),
+            D => (1,0),
+            L => (0,-1),
+            U => (-1,0),
         }
     }
 }
@@ -54,6 +64,7 @@ impl Display for BlockType {
 }
 
 type Map = DMatrix<BlockType>;
+type Pos = (usize,usize);
 
 #[derive(Debug, Clone)]
 struct Problem {
@@ -61,7 +72,21 @@ struct Problem {
     instructions: Vec<Instruction>,
 }
 impl Problem {
+    fn find_next(&self, pos: Pos, dir: Direction) -> (BlockType, Pos) {
+        let (dr,dc) = dir.delta();
+        let mut r = pos.0 as i32;
+        let mut c = pos.1 as i32;
+        loop {
+            r += dr.div_euclid(self.map.nrows() as i32);
+            c += dc.div_euclid(self.map.ncols() as i32);
 
+            let new_pos = (r as usize,c as usize);
+            let block = self.map[new_pos];
+            if block != Empty {
+                return (block, new_pos)
+            }
+        }    
+    }
 }
 
 fn parse_input(input: &str) -> AnyResult<Problem> {
@@ -112,6 +137,39 @@ fn parse_input(input: &str) -> AnyResult<Problem> {
     Ok(Problem { map, instructions })
 }
 
+fn part1(problem: &Problem) -> usize {
+    let mut dir = Direction::R;
+    let col = problem.map.row(0).iter().position(|b| *b == Open).unwrap();
+    let mut pos = (0, col); 
+
+    for inst in problem.instructions.iter() {
+        match inst {
+            Instruction::Move(n) => {
+                for _ in 0..*n {
+                    let (block, new_pos) = problem.find_next(pos, dir);
+                    if block == BlockType::Wall {
+                        break;
+                    } else {
+                        pos = new_pos;
+                    }
+                }
+            },
+            Instruction::TurnLeft => { dir = dir.left() },
+            Instruction::TurnRight => { dir = dir.right() },
+        }
+    }
+
+    println!("final position {pos:?} and direction {dir:?}");
+    let score = 1000 * (pos.0 + 1) + 4 * (pos.1 + 1) + match dir {
+        // Facing is 0 for right (>), 1 for down (v), 2 for left (<), and 3 for up (^)
+        R => 0,
+        D => 1,
+        L => 2,
+        U => 3,
+    };
+    score
+}
+
 fn main() {
     println!("Hello, world!");
 }
@@ -145,12 +203,12 @@ mod tests {
         println!("{}", problem.map);
     }
 
-    // #[test]
-    // fn part1_correct() {
-    //     let input = parse_input(TEST_INPUT).unwrap();
-    //     let res = part1(&input).unwrap();
-    //     assert_eq!(res, 152);
-    // }
+    #[test]
+    fn part1_correct() {
+        let problem = parse_input(TEST_INPUT).unwrap();
+        let res = part1(&problem);
+        assert_eq!(res, 6032);
+    }
 
     // #[test]
     // fn part2_correct() {
