@@ -1,11 +1,11 @@
+use anyhow::bail;
+use common::{read_file, AnyResult};
+use rustc_hash::FxHashMap;
+use rustc_hash::FxHashSet;
 use std::{
-    collections::{HashMap, HashSet},
     fmt::{Display, Write},
     ops::{Add, Sub},
 };
-
-use anyhow::bail;
-use common::{read_file, AnyResult};
 
 #[derive(Debug, Clone, Copy, Default, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Point {
@@ -104,8 +104,8 @@ impl Elf {
 #[derive(Debug, Clone)]
 struct Problem {
     elves: Vec<Elf>,
-    current_locations: HashSet<Point>,
-    proposed_location_counts: HashMap<Point, usize>,
+    current_locations: FxHashSet<Point>,
+    proposed_location_counts: FxHashMap<Point, usize>,
 }
 impl Problem {
     fn new_with_elves(elves: Vec<Elf>) -> Problem {
@@ -113,7 +113,7 @@ impl Problem {
         Problem {
             elves,
             current_locations,
-            proposed_location_counts: HashMap::new(),
+            proposed_location_counts: FxHashMap::default(),
         }
     }
 
@@ -255,7 +255,7 @@ fn part2(input: &str) -> AnyResult<usize> {
     let mut problem = parse_input(input)?;
     for round in 1.. {
         if problem.step_once() == 0 {
-            return Ok(round)
+            return Ok(round);
         }
         if round % 100 == 0 {
             println!("round {round}");
@@ -361,18 +361,4 @@ mod tests {
         let res = part2(TEST_INPUT).unwrap();
         assert_eq!(res, 20);
     }
-
-    // #[test]
-    // fn part1_correct() {
-    //     let input = parse_input(TEST_INPUT).unwrap();
-    //     let res = part1(&input).unwrap();
-    //     assert_eq!(res, 152);
-    // }
-
-    // #[test]
-    // fn part2_correct() {
-    //     let input = parse_input(TEST_INPUT).unwrap();
-    //     let res = part2(&input).unwrap();
-    //     assert_eq!(res, 301);
-    // }
 }
