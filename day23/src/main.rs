@@ -4,6 +4,7 @@ use std::{
     ops::{Add, Sub},
 };
 
+use anyhow::bail;
 use common::{read_file, AnyResult};
 
 #[derive(Debug, Clone, Copy, Default, Hash, Eq, PartialEq, Ord, PartialOrd)]
@@ -250,10 +251,24 @@ fn part1(input: &str) -> AnyResult<usize> {
     Ok(problem.count_empty_blocks())
 }
 
+fn part2(input: &str) -> AnyResult<usize> {
+    let mut problem = parse_input(input)?;
+    for round in 1.. {
+        if problem.step_once() == 0 {
+            return Ok(round)
+        }
+        if round % 100 == 0 {
+            println!("round {round}");
+        }
+    }
+    bail!("not found");
+}
+
 fn main() -> AnyResult<()> {
     let input = read_file("day23/input.txt")?;
 
     println!("part1 result: {}", part1(&input)?);
+    println!("part2 result: {}", part2(&input)?);
 
     Ok(())
 }
@@ -339,6 +354,12 @@ mod tests {
         "};
         assert_eq!(problem.to_string(), expected);
         assert_eq!(problem.count_empty_blocks(), 110);
+    }
+
+    #[test]
+    fn part2_correct() {
+        let res = part2(TEST_INPUT).unwrap();
+        assert_eq!(res, 20);
     }
 
     // #[test]
