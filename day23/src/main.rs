@@ -88,15 +88,12 @@ fn adjacent_points_move(current: Point, dir: Dir) -> [Point; 3] {
 struct Elf {
     current_location: Point,
     proposed_location: Option<Point>,
-    // TODO: consider whether we can move this to the Problem instead
-    next_move_cycle: usize,
 }
 impl Elf {
     fn new(loc: Point) -> Elf {
         Elf {
             current_location: loc,
             proposed_location: None,
-            next_move_cycle: 0,
         }
     }
 }
@@ -106,6 +103,7 @@ struct Problem {
     elves: Vec<Elf>,
     current_locations: FxHashSet<Point>,
     proposed_location_counts: FxHashMap<Point, usize>,
+    next_move_cycle: usize,
 }
 impl Problem {
     fn new_with_elves(elves: Vec<Elf>) -> Problem {
@@ -114,6 +112,7 @@ impl Problem {
             elves,
             current_locations,
             proposed_location_counts: FxHashMap::default(),
+            next_move_cycle: 0,
         }
     }
 
@@ -152,11 +151,11 @@ impl Problem {
     fn step_once(&mut self) -> usize {
         // phase 1 -- proposed moves
         self.proposed_location_counts.clear();
+
         for i in 0..self.elves.len() {
             let elf = self.elves.get_mut(i).unwrap();
 
             let mut updated_position = None;
-            let next_move_cyle = elf.next_move_cycle;
 
             // elf wants to move if there are any elves adjacent to it
             let elf_wants_to_move = ADJACENT_OFFSETS
@@ -169,7 +168,7 @@ impl Problem {
                 for dir in DIRECTIONS
                     .iter()
                     .cycle()
-                    .skip(next_move_cyle)
+                    .skip(self.next_move_cycle)
                     .take(NUM_DIRECTIONS)
                 {
                     let adjacent = adjacent_points_move(elf.current_location, *dir);
@@ -180,7 +179,6 @@ impl Problem {
                     }
                 }
             }
-            elf.next_move_cycle = (elf.next_move_cycle + 1) % NUM_DIRECTIONS;
 
             if let Some(pos) = updated_position {
                 elf.proposed_location = Some(pos);
@@ -210,6 +208,9 @@ impl Problem {
         for elf in &self.elves {
             self.current_locations.insert(elf.current_location);
         }
+
+        // next move cycle
+        self.next_move_cycle = (self.next_move_cycle + 1) % NUM_DIRECTIONS;
 
         count_moved
     }
