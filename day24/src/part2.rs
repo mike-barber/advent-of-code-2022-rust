@@ -46,12 +46,16 @@ pub fn find_shortest_path(problem: &Problem) -> Option<i32> {
     dist.insert(start, 0);
 
     while let Some((u, _prio)) = queue.pop() {
+        let u_dist = dist.get(&u).copied().unwrap();
+
         let next_phase = problem.next_phase(u.phase);
         let next_state = &states[next_phase];
 
         let valid_moves = next_state.available_moves(u.loc);
         for v_point in valid_moves {
-            // transition points
+            // transition points from one Regime to the next; this is only possible
+            // at the specific points we allow below, so it forces us to pass through
+            // these points
             let next_regime = match (u.regime, v_point) {
                 (Regime::Initial, p) if p == problem.end => Regime::ReturnToStart,
                 (Regime::ReturnToStart, p) if p == problem.start => Regime::Final,
@@ -59,17 +63,19 @@ pub fn find_shortest_path(problem: &Problem) -> Option<i32> {
             };
             let v = PosStateRegime::new(next_regime, next_phase, v_point);
 
-            if !dist.contains_key(&v) {
+            // add point to dist map and queue if it's unseen
+            let v_dist = dist.entry(v).or_insert_with(|| {
                 queue.push(v, PRIO_INIT);
-                dist.insert(v, DIST_INIT);
-            }
+                DIST_INIT
+            });
 
+            // update shortest path to `v`
             if queue.get(&v).is_some() {
                 // distance is to current node (u) + 1
-                let alt = dist.get(&u).unwrap() + 1;
-                if alt < *dist.get(&v).unwrap() {
+                let alt = u_dist + 1;
+                if alt < *v_dist {
                     // update distances to this node
-                    *dist.get_mut(&v).unwrap() = alt;
+                    *v_dist = alt;
                     queue.change_priority(&v, -alt);
                 }
             }
