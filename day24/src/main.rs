@@ -7,7 +7,7 @@ use arrayvec::ArrayVec;
 use common::*;
 use gcd::Gcd;
 use itertools::Itertools;
-use nalgebra::{distance, indexing::MatrixIndex, DMatrix};
+use nalgebra::DMatrix;
 use priority_queue::PriorityQueue;
 use rustc_hash::{FxHashMap, FxHashSet};
 
@@ -137,7 +137,6 @@ impl Display for GridState {
 #[derive(Debug, Clone)]
 struct ProblemState<'a> {
     problem: &'a Problem,
-    time: usize,
     grid: DMatrix<GridState>,
 }
 impl<'a> ProblemState<'a> {
@@ -157,7 +156,6 @@ impl<'a> ProblemState<'a> {
         ProblemState {
             problem,
             grid,
-            time,
         }
     }
 
@@ -316,9 +314,9 @@ fn find_shortest_path(problem: &Problem) -> Option<i32> {
     }
 
     // print out all states
-    for dest_state in (0..problem.cycle_length).map(|phase| PosState::new(phase, problem.end)) {
-        println!("state {dest_state:?} => {:?}", dist.get(&dest_state));
-    }
+    // for dest_state in (0..problem.cycle_length).map(|phase| PosState::new(phase, problem.end)) {
+    //     println!("state {dest_state:?} => {:?}", dist.get(&dest_state));
+    // }
 
     // return shortest
     let minimum = (0..problem.cycle_length)
@@ -404,11 +402,11 @@ fn find_shortest_path_part2(problem: &Problem) -> Option<i32> {
     }
 
     // print out all states
-    for dest_state in (0..problem.cycle_length)
-        .map(|phase| PosStateRegime::new(Regime::Final, phase, problem.end))
-    {
-        println!("state {dest_state:?} => {:?}", dist.get(&dest_state));
-    }
+    // for dest_state in (0..problem.cycle_length)
+    //     .map(|phase| PosStateRegime::new(Regime::Final, phase, problem.end))
+    // {
+    //     println!("state {dest_state:?} => {:?}", dist.get(&dest_state));
+    // }
 
     // return shortest
     let minimum = (0..problem.cycle_length)
