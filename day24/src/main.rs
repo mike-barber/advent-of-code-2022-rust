@@ -7,7 +7,7 @@ use arrayvec::ArrayVec;
 use common::*;
 use gcd::Gcd;
 use itertools::Itertools;
-use nalgebra::{DMatrix, distance};
+use nalgebra::{distance, indexing::MatrixIndex, DMatrix};
 use priority_queue::PriorityQueue;
 use rustc_hash::{FxHashMap, FxHashSet};
 
@@ -59,10 +59,11 @@ impl From<Dir> for Point {
 }
 
 impl From<Point> for (usize, usize) {
-    fn from(value: Point) -> (usize,usize) {
+    fn from(value: Point) -> (usize, usize) {
         let x = value.x.try_into().expect("invalid x coordinate");
         let y = value.y.try_into().expect("invalid y coordinate");
-        (x, y)
+        // note matrix coordinates are (row,col)
+        (y, x)
     }
 }
 
@@ -109,7 +110,6 @@ impl Problem {
     }
 }
 
-
 #[derive(Debug, Clone, PartialEq, PartialOrd, Copy)]
 enum GridState {
     Blank,
@@ -142,7 +142,7 @@ struct ProblemState<'a> {
 }
 impl<'a> ProblemState<'a> {
     fn with_time(problem: &Problem, time: usize) -> ProblemState {
-        let mut grid = DMatrix::from_element(problem.cols, problem.rows, GridState::Blank);
+        let mut grid = DMatrix::from_element(problem.rows, problem.cols, GridState::Blank);
 
         for bliz in &problem.blizzards {
             let loc = bliz.location_at_time(time, problem.rows, problem.cols);
@@ -165,11 +165,11 @@ impl<'a> ProblemState<'a> {
         let mut avail = ArrayVec::new();
 
         let deltas = [
-            Point::new(0,0),
+            Point::new(0, 0),
             Dir::N.into(),
             Dir::E.into(),
             Dir::S.into(),
-            Dir::W.into()
+            Dir::W.into(),
         ];
 
         // check directions - can move into a blank space, or to start or end
@@ -178,7 +178,7 @@ impl<'a> ProblemState<'a> {
             let valid = match new_loc {
                 p if p == self.problem.start => true,
                 p if p == self.problem.end => true,
-                p => self.problem.contains(p) && self.grid[p.to_coord()] == GridState::Blank
+                p => self.problem.contains(p) && self.grid[p.to_coord()] == GridState::Blank,
             };
             if valid {
                 avail.push(new_loc);
@@ -186,22 +186,13 @@ impl<'a> ProblemState<'a> {
         }
         avail
     }
-
-    // fn phase(&self) -> usize {
-    //     self.time.rem_euclid(self.problem.cycle_length)
-    // }
-
-    // fn next_phase(&self) -> usize {
-    //     (self.time + 1).rem_euclid(self.problem.cycle_length)
-    // }
-    
 }
 
 impl<'a> Display for ProblemState<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for y in 0..self.problem.rows {
             for x in 0..self.problem.cols {
-                let g = self.grid[(x, y)];
+                let g = self.grid[(y, x)];
                 Display::fmt(&g, f)?;
             }
             writeln!(f)?;
@@ -245,13 +236,16 @@ fn parse_input(input: &str) -> AnyResult<Problem> {
         .ok_anyhow()?
         .chars()
         .position(|c| c == '.')
-        .ok_anyhow()?;
+        .ok_anyhow()?
+        - 1;
+
     let end_x = lines
         .last()
         .ok_anyhow()?
         .chars()
         .position(|c| c == '.')
-        .ok_anyhow()?;
+        .ok_anyhow()?
+        - 1;
 
     Ok(Problem {
         rows,
@@ -263,7 +257,7 @@ fn parse_input(input: &str) -> AnyResult<Problem> {
     })
 }
 
-#[derive(Debug,Copy,Clone,Hash, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
 struct PosState {
     phase: usize,
     loc: Point,
@@ -274,10 +268,10 @@ impl PosState {
     }
 }
 
-fn find_shortest_path(problem: &Problem) -> Option<usize> {
-    const DIST_INIT: i32 = i32::MAX/2;
+fn find_shortest_path(problem: &Problem) -> Option<i32> {
+    const DIST_INIT: i32 = i32::MAX / 2;
     const PRIO_INIT: i32 = i32::MIN;
-    
+
     let states = (0..problem.cycle_length)
         .map(|t| ProblemState::with_time(problem, t))
         .collect_vec();
@@ -294,6 +288,11 @@ fn find_shortest_path(problem: &Problem) -> Option<usize> {
     prev.insert(start, None);
 
     while let Some((u, _prio)) = queue.pop() {
+        //println!("queue at {u:?}:");
+        // for qi in queue.iter() {
+        //     println!("  {qi:?}");
+        // }
+
         let next_phase = problem.next_phase(u.phase);
         let next_state = &states[next_phase];
 
@@ -321,11 +320,14 @@ fn find_shortest_path(problem: &Problem) -> Option<usize> {
         }
     }
 
-    for dest_state in (0..problem.cycle_length).map(|p| PosState::new(p, problem.end)) {
+    // print out all states
+    for dest_state in (0..problem.cycle_length).map(|phase| PosState::new(phase, problem.end)) {
         println!("state {dest_state:?} => {:?}", dist.get(&dest_state));
     }
 
-    todo!()
+    // return shortest
+    let minimum = (0..problem.cycle_length).flat_map(|phase| dist.get(&PosState::new(phase, problem.end))).min();
+    minimum.copied()
 }
 
 fn main() -> AnyResult<()> {
@@ -348,6 +350,10 @@ fn main() -> AnyResult<()> {
 
         assert_eq!(init.to_string(), state.to_string());
     }
+
+
+    let part1_result = find_shortest_path(&problem);
+    println!("part1 result: {part1_result:?}");
 
     Ok(())
 }
@@ -421,28 +427,7 @@ mod tests {
     #[test]
     fn find_shortest_path_correct() {
         let problem = parse_input(TEST_INPUT_COMPLEX).unwrap();
-        find_shortest_path(&problem);
+        let minimum = find_shortest_path(&problem);
+        assert_eq!(minimum, Some(18));
     }
-
-    // #[test]
-    // fn step_once_check_larger() {
-    //     let mut problem = parse_input(TEST_INPUT).unwrap();
-    //     println!("{problem}");
-    //     for i in 1..=10 {
-    //         let count = problem.step_once();
-    //         println!("i: {i}, moved: {count}");
-    //         println!("{problem}");
-    //     }
-
-    //     let expected = indoc! {"
-    //     "};
-    //     assert_eq!(problem.to_string(), expected);
-    //     assert_eq!(problem.count_empty_blocks(), 110);
-    // }
-
-    // #[test]
-    // fn part2_correct() {
-    //     let res = part2(TEST_INPUT).unwrap();
-    //     assert_eq!(res, 20);
-    // }
 }
