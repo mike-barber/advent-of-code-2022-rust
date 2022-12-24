@@ -3,10 +3,13 @@ use std::{
     ops::{Add, Mul, Sub},
 };
 
+use arrayvec::ArrayVec;
 use common::*;
 use gcd::Gcd;
 use itertools::Itertools;
-use nalgebra::DMatrix;
+use nalgebra::{DMatrix, distance};
+use priority_queue::PriorityQueue;
+use rustc_hash::{FxHashMap, FxHashSet};
 
 #[derive(Debug, Clone, Copy, Default, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Point {
@@ -16,6 +19,10 @@ pub struct Point {
 impl Point {
     pub const fn new(x: i64, y: i64) -> Self {
         Self { x, y }
+    }
+
+    pub fn to_coord(self) -> (usize, usize) {
+        self.into()
     }
 }
 impl Add for Point {
@@ -51,13 +58,11 @@ impl From<Dir> for Point {
     }
 }
 
-impl TryFrom<Point> for (usize,usize) {
-    type Error = anyhow::Error;
-
-    fn try_from(value: Point) -> Result<Self, Self::Error> {
-        let x = value.x.try_into()?;
-        let y = value.y.try_into()?;
-        Ok((x,y))
+impl From<Point> for (usize, usize) {
+    fn from(value: Point) -> (usize,usize) {
+        let x = value.x.try_into().expect("invalid x coordinate");
+        let y = value.y.try_into().expect("invalid y coordinate");
+        (x, y)
     }
 }
 
@@ -78,7 +83,10 @@ impl Blizzard {
     fn location_at_time(&self, time: usize, rows: usize, cols: usize) -> Point {
         let delta = Point::from(self.dir) * Point::new(time as i64, time as i64);
         let current = self.origin + delta;
-        Point::new(current.x.rem_euclid(cols as i64), current.y.rem_euclid(rows as i64))
+        Point::new(
+            current.x.rem_euclid(cols as i64),
+            current.y.rem_euclid(rows as i64),
+        )
     }
 }
 
@@ -91,6 +99,16 @@ struct Problem {
     end: Point,
     cycle_length: usize,
 }
+impl Problem {
+    fn contains(&self, point: Point) -> bool {
+        point.x >= 0 && point.y >= 0 && point.x < self.cols as i64 && point.y < self.rows as i64
+    }
+
+    fn next_phase(&self, curr_phase: usize) -> usize {
+        (curr_phase + 1).rem_euclid(self.cycle_length)
+    }
+}
+
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Copy)]
 enum GridState {
@@ -128,11 +146,11 @@ impl<'a> ProblemState<'a> {
 
         for bliz in &problem.blizzards {
             let loc = bliz.location_at_time(time, problem.rows, problem.cols);
-            let loc: (usize,usize) = loc.try_into().unwrap();
+            let loc: (usize, usize) = loc.try_into().unwrap();
             grid[loc] = match grid[loc] {
                 GridState::Blank => GridState::One(bliz.dir),
                 GridState::One(_) => GridState::Multiple(2),
-                GridState::Multiple(m) => GridState::Multiple(m+1),
+                GridState::Multiple(m) => GridState::Multiple(m + 1),
             }
         }
 
@@ -142,13 +160,48 @@ impl<'a> ProblemState<'a> {
             time,
         }
     }
+
+    fn available_moves(&self, curr_loc: Point) -> ArrayVec<Point, 5> {
+        let mut avail = ArrayVec::new();
+
+        let deltas = [
+            Point::new(0,0),
+            Dir::N.into(),
+            Dir::E.into(),
+            Dir::S.into(),
+            Dir::W.into()
+        ];
+
+        // check directions - can move into a blank space, or to start or end
+        for d in deltas {
+            let new_loc = curr_loc + d;
+            let valid = match new_loc {
+                p if p == self.problem.start => true,
+                p if p == self.problem.end => true,
+                p => self.problem.contains(p) && self.grid[p.to_coord()] == GridState::Blank
+            };
+            if valid {
+                avail.push(new_loc);
+            }
+        }
+        avail
+    }
+
+    // fn phase(&self) -> usize {
+    //     self.time.rem_euclid(self.problem.cycle_length)
+    // }
+
+    // fn next_phase(&self) -> usize {
+    //     (self.time + 1).rem_euclid(self.problem.cycle_length)
+    // }
+    
 }
 
 impl<'a> Display for ProblemState<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for y in 0..self.problem.rows {
             for x in 0..self.problem.cols {
-                let g = self.grid[(x,y)];
+                let g = self.grid[(x, y)];
                 Display::fmt(&g, f)?;
             }
             writeln!(f)?;
@@ -194,7 +247,7 @@ fn parse_input(input: &str) -> AnyResult<Problem> {
         .position(|c| c == '.')
         .ok_anyhow()?;
     let end_x = lines
-        .first()
+        .last()
         .ok_anyhow()?
         .chars()
         .position(|c| c == '.')
@@ -208,6 +261,71 @@ fn parse_input(input: &str) -> AnyResult<Problem> {
         start: Point::new(start_x as i64, -1),
         end: Point::new(end_x as i64, rows as i64),
     })
+}
+
+#[derive(Debug,Copy,Clone,Hash, PartialEq, Eq)]
+struct PosState {
+    phase: usize,
+    loc: Point,
+}
+impl PosState {
+    fn new(phase: usize, loc: Point) -> Self {
+        PosState { phase, loc }
+    }
+}
+
+fn find_shortest_path(problem: &Problem) -> Option<usize> {
+    const DIST_INIT: i32 = i32::MAX/2;
+    const PRIO_INIT: i32 = i32::MIN;
+    
+    let states = (0..problem.cycle_length)
+        .map(|t| ProblemState::with_time(problem, t))
+        .collect_vec();
+
+    let mut dist: FxHashMap<PosState, i32> = FxHashMap::default();
+    let mut prev: FxHashMap<PosState, Option<PosState>> = FxHashMap::default();
+    let mut discovered: FxHashSet<PosState> = FxHashSet::default();
+
+    // initialise
+    let start = PosState::new(0, problem.start);
+    let mut queue = PriorityQueue::new();
+    queue.push(start, 0);
+    dist.insert(start, 0);
+    prev.insert(start, None);
+
+    while let Some((u, _prio)) = queue.pop() {
+        let next_phase = problem.next_phase(u.phase);
+        let next_state = &states[next_phase];
+
+        let valid_moves = next_state.available_moves(u.loc);
+        for v_point in valid_moves {
+            let v = PosState::new(next_phase, v_point);
+
+            if !discovered.contains(&v) {
+                queue.push(v, PRIO_INIT);
+                dist.insert(v, DIST_INIT);
+                prev.insert(v, None);
+                discovered.insert(v);
+            }
+
+            if queue.get(&v).is_some() {
+                // distance is to current node (u) + 1
+                let alt = dist.get(&u).unwrap() + 1;
+                if alt < *dist.get(&v).unwrap() {
+                    // update distances to this node, and record how we got here
+                    *dist.get_mut(&v).unwrap() = alt;
+                    *prev.get_mut(&v).unwrap() = Some(u);
+                    queue.change_priority(&v, -alt);
+                }
+            }
+        }
+    }
+
+    for dest_state in (0..problem.cycle_length).map(|p| PosState::new(p, problem.end)) {
+        println!("state {dest_state:?} => {:?}", dist.get(&dest_state));
+    }
+
+    todo!()
 }
 
 fn main() -> AnyResult<()> {
@@ -278,7 +396,7 @@ mod tests {
 
     fn test_cycles(input: &str) {
         let problem = parse_input(input).unwrap();
-        
+
         let init = ProblemState::with_time(&problem, 0);
         let init_str = init.to_string();
 
@@ -295,12 +413,16 @@ mod tests {
         test_cycles(TEST_INPUT_COMPLEX);
     }
 
-
     #[test]
     fn run_cycles_complex() {
         test_cycles(TEST_INPUT_COMPLEX);
     }
 
+    #[test]
+    fn find_shortest_path_correct() {
+        let problem = parse_input(TEST_INPUT_COMPLEX).unwrap();
+        find_shortest_path(&problem);
+    }
 
     // #[test]
     // fn step_once_check_larger() {

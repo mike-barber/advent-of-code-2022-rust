@@ -213,6 +213,7 @@ dependencies = [
  "indoc",
  "itertools",
  "nalgebra",
+ "priority-queue",
  "rustc-hash",
 ]
 
