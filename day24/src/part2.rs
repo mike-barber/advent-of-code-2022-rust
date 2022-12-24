@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 use itertools::Itertools;
 use priority_queue::PriorityQueue;
-use rustc_hash::{FxHashMap, FxHashSet};
+use rustc_hash::FxHashMap;
 
 use crate::*;
 
@@ -38,15 +38,12 @@ pub fn find_shortest_path(problem: &Problem) -> Option<i32> {
         .collect_vec();
 
     let mut dist: FxHashMap<PosStateRegime, i32> = FxHashMap::default();
-    let mut prev: FxHashMap<PosStateRegime, Option<PosStateRegime>> = FxHashMap::default();
-    let mut discovered: FxHashSet<PosStateRegime> = FxHashSet::default();
 
     // initialise
     let start = PosStateRegime::new(Regime::Initial, 0, problem.start);
     let mut queue = PriorityQueue::new();
     queue.push(start, 0);
     dist.insert(start, 0);
-    prev.insert(start, None);
 
     while let Some((u, _prio)) = queue.pop() {
         let next_phase = problem.next_phase(u.phase);
@@ -62,20 +59,17 @@ pub fn find_shortest_path(problem: &Problem) -> Option<i32> {
             };
             let v = PosStateRegime::new(next_regime, next_phase, v_point);
 
-            if !discovered.contains(&v) {
+            if !dist.contains_key(&v) {
                 queue.push(v, PRIO_INIT);
                 dist.insert(v, DIST_INIT);
-                prev.insert(v, None);
-                discovered.insert(v);
             }
 
             if queue.get(&v).is_some() {
                 // distance is to current node (u) + 1
                 let alt = dist.get(&u).unwrap() + 1;
                 if alt < *dist.get(&v).unwrap() {
-                    // update distances to this node, and record how we got here
+                    // update distances to this node
                     *dist.get_mut(&v).unwrap() = alt;
-                    *prev.get_mut(&v).unwrap() = Some(u);
                     queue.change_priority(&v, -alt);
                 }
             }
