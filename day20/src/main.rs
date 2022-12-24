@@ -3,6 +3,8 @@ use std::{cmp::Ordering, ops::Rem};
 use common::{read_file, AnyResult};
 use itertools::Itertools;
 
+const PART2_KEY: i32 = 811589153;
+
 fn parse_input(input: &str) -> AnyResult<Vec<i32>> {
     let vals: Result<Vec<_>, _> = input.lines().map(str::parse::<i32>).collect();
     Ok(vals?)
@@ -130,21 +132,25 @@ fn calculate_permutations(moves: &[i32]) -> Vec<usize> {
     positions
 }
 
-fn calculate_permutations_fast(moves: &[i32]) -> Vec<usize> {
+fn calculate_permutations_fast(moves: &[i32], echo: bool) -> Vec<usize> {
     let len = moves.len();
     let mut positions: Vec<usize> = (0..moves.len()).collect();
 
-    println!(
-        "indices {:?} arr {:?}",
-        positions,
-        permute(moves, &positions)
-    );
+    if echo {
+        println!(
+            "indices {:?} arr {:?}",
+            positions,
+            permute(moves, &positions)
+        );
+    }
     for (orig_idx, mv) in moves.iter().enumerate() {
-        println!();
-        if *mv == 0 {
-            println!("skipped mv==0");
-            // no move for zero
-            continue;
+        if echo {
+            println!();
+            if *mv == 0 {
+                println!("skipped mv==0");
+                // no move for zero
+                continue;
+            }
         }
 
         let curr_idx = positions.iter().position(|&p| p == orig_idx).unwrap();
@@ -156,19 +162,31 @@ fn calculate_permutations_fast(moves: &[i32]) -> Vec<usize> {
         };
         let tgt_pos = positions[tgt_index];
 
-        println!(
-            "move by {mv}: [ix={curr_idx} = {}] --> [before ix={tgt_pos} = {}]",
-            moves[positions[curr_idx]], moves[tgt_pos]
-        );
+        // skip if we're placing back at the same place
+        if tgt_pos == orig_idx {
+            if echo {
+                println!("skipping place back in same location");
+            }
+            continue;
+        }
+
+        if echo {
+            println!(
+                "move by {mv}: [ix={curr_idx} = {}] --> [before ix={tgt_pos} = {}]",
+                moves[positions[curr_idx]], moves[tgt_pos]
+            );
+        }
 
         // not efficient
         positions.remove(curr_idx);
 
-        println!(
-            "  indices {:?} arr {:?}",
-            positions,
-            permute(moves, &positions)
-        );
+        if echo {
+            println!(
+                "  indices {:?} arr {:?}",
+                positions,
+                permute(moves, &positions)
+            );
+        }
 
         let insert_idx = positions.iter().position(|&p| p == tgt_pos).unwrap();
         if insert_idx == 0 {
@@ -179,11 +197,13 @@ fn calculate_permutations_fast(moves: &[i32]) -> Vec<usize> {
             positions.insert(insert_idx, orig_idx);
         }
 
-        println!(
-            "  indices {:?} arr {:?}",
-            positions,
-            permute(moves, &positions)
-        );
+        if echo {
+            println!(
+                "  indices {:?} arr {:?}",
+                positions,
+                permute(moves, &positions)
+            );
+        }
     }
     positions
 }
@@ -216,7 +236,7 @@ fn part1(array: &[i32]) -> i32 {
 fn part1_alt(array: &[i32]) -> i32 {
     //let mixed = mix_once(array);
     //let mixed = mix_once_permute(array);
-    let positions = calculate_permutations_fast(array);
+    let positions = calculate_permutations_fast(array, false);
     let mixed = permute(array, &positions);
 
     let pos_zero = mixed.iter().position(|a| *a == 0).unwrap();
@@ -260,7 +280,7 @@ fn scratch() {
     }
 
     let example = [1, 2, -3, 3, -2, 0, 4];
-    calculate_permutations_fast(&example);
+    calculate_permutations_fast(&example, true);
 }
 
 #[cfg(test)]
@@ -278,7 +298,6 @@ mod tests {
         4
     "};
 
-  
     #[test]
     fn parse_input_correct() {
         parse_input(TEST_INPUT).unwrap();
@@ -301,7 +320,7 @@ mod tests {
     #[test]
     fn calculate_permutations_fast_correct() {
         let input = parse_input(TEST_INPUT).unwrap();
-        let positions = calculate_permutations_fast(&input);
+        let positions = calculate_permutations_fast(&input, true);
         let res = permute(&input, &positions);
         assert_eq!(res, [1, 2, -3, 4, 0, 3, -2]);
     }
@@ -311,5 +330,11 @@ mod tests {
         let input = parse_input(TEST_INPUT).unwrap();
         let res = part1(&input);
         assert_eq!(res, 3);
+    }
+
+    #[test]
+    fn part2_correct() {
+        let mut input = parse_input(TEST_INPUT).unwrap();
+        input.iter_mut().for_each(|v| *v *= PART2_KEY);
     }
 }
