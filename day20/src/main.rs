@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, ops::Rem, thread::current};
+use std::{cmp::Ordering, ops::Rem};
 
 use common::{read_file, AnyResult};
 use itertools::Itertools;
@@ -130,6 +130,64 @@ fn calculate_permutations(moves: &[i32]) -> Vec<usize> {
     positions
 }
 
+fn calculate_permutations_fast(moves: &[i32]) -> Vec<usize> {
+    let len = moves.len();
+    let mut positions: Vec<usize> = (0..moves.len()).collect();
+
+    println!(
+        "indices {:?} arr {:?}",
+        positions,
+        permute(moves, &positions)
+    );
+    for (orig_idx, mv) in moves.iter().enumerate() {
+        println!();
+        if *mv == 0 {
+            println!("skipped mv==0");
+            // no move for zero
+            continue;
+        }
+
+        let curr_idx = positions.iter().position(|&p| p == orig_idx).unwrap();
+
+        let tgt_index = match mv {
+            mv if *mv > 0 => (curr_idx as i32 + *mv + 1).rem_euclid(len as i32) as usize,
+            mv if *mv < 0 => (curr_idx as i32 + *mv).rem_euclid(len as i32) as usize,
+            _ => curr_idx,
+        };
+        let tgt_pos = positions[tgt_index];
+
+        println!(
+            "move by {mv}: [ix={curr_idx} = {}] --> [before ix={tgt_pos} = {}]",
+            moves[positions[curr_idx]], moves[tgt_pos]
+        );
+
+        // not efficient
+        positions.remove(curr_idx);
+
+        println!(
+            "  indices {:?} arr {:?}",
+            positions,
+            permute(moves, &positions)
+        );
+
+        let insert_idx = positions.iter().position(|&p| p == tgt_pos).unwrap();
+        if insert_idx == 0 {
+            // if it's at the start, add to the _end_ as per the rules
+            positions.push(orig_idx);
+        } else {
+            // otherwise insert before the designated element
+            positions.insert(insert_idx, orig_idx);
+        }
+
+        println!(
+            "  indices {:?} arr {:?}",
+            positions,
+            permute(moves, &positions)
+        );
+    }
+    positions
+}
+
 fn permute(array: &[i32], positions: &[usize]) -> Vec<i32> {
     positions.iter().map(|ix| array[*ix]).collect()
 }
@@ -155,11 +213,31 @@ fn part1(array: &[i32]) -> i32 {
     sum
 }
 
+fn part1_alt(array: &[i32]) -> i32 {
+    //let mixed = mix_once(array);
+    //let mixed = mix_once_permute(array);
+    let positions = calculate_permutations_fast(array);
+    let mixed = permute(array, &positions);
+
+    let pos_zero = mixed.iter().position(|a| *a == 0).unwrap();
+
+    let mut sum = 0;
+    for idx in [1000, 2000, 3000] {
+        let val = mixed.iter().cycle().skip(pos_zero).nth(idx).unwrap();
+        dbg!(val);
+        sum += val;
+    }
+
+    sum
+}
+
 fn main() -> AnyResult<()> {
     let input = parse_input(&read_file("day20/input.txt")?)?;
 
     println!("expecting: 13289");
     println!("part1 result = {}", part1(&input));
+
+    println!("part1_alt result = {}", part1_alt(&input));
 
     scratch();
 
@@ -167,19 +245,22 @@ fn main() -> AnyResult<()> {
 }
 
 fn scratch() {
-    let mut moves = [0;6];
+    let mut moves = [0; 6];
     println!("positive moves --------");
-    for m in 0..=6*6 {
+    for m in 0..=6 * 6 {
         moves[2] = m;
         let perm = calculate_permutations(&moves);
         println!("{m}: {perm:?}");
     }
     println!("negative moves --------");
-    for m in 0..=6*6 {
+    for m in 0..=6 * 6 {
         moves[2] = -m;
         let perm = calculate_permutations(&moves);
         println!("{m}: {perm:?}");
     }
+
+    let example = [1, 2, -3, 3, -2, 0, 4];
+    calculate_permutations_fast(&example);
 }
 
 #[cfg(test)]
@@ -197,65 +278,7 @@ mod tests {
         4
     "};
 
-    // #[test]
-    // fn permute_positions_correct() {
-    //     // no moves
-    //     assert_eq!(
-    //         calculate_permutations(&[0, 0, 0, 0, 0, 0]),
-    //         [0, 1, 2, 3, 4, 5]
-    //     );
-    //     assert_eq!(
-    //         calculate_permutations(&[0, 0, 6, 0, 0, 0]),
-    //         [0, 1, 2, 3, 4, 5]
-    //     );
-    //     assert_eq!(
-    //         calculate_permutations(&[0, 0, -6, 0, 0, 0]),
-    //         [0, 1, 2, 3, 4, 5]
-    //     );
-    //     // negative moves
-    //     assert_eq!(
-    //         calculate_permutations(&[0, 0, -1, 0, 0, 0]),
-    //         [0, 2, 1, 3, 4, 5]
-    //     );
-    //     assert_eq!(
-    //         calculate_permutations(&[0, 0, -2, 0, 0, 0]),
-    //         [2, 0, 1, 3, 4, 5]
-    //     );
-    //     assert_eq!(
-    //         calculate_permutations(&[0, 0, -3, 0, 0, 0]),
-    //         [0, 1, 3, 4, 5, 2]
-    //     );
-    //     assert_eq!(
-    //         calculate_permutations(&[0, 0, -4, 0, 0, 0]),
-    //         [0, 1, 3, 4, 2, 5]
-    //     );
-    //     assert_eq!(
-    //         calculate_permutations(&[0, 0, -5, 0, 0, 0]),
-    //         [0, 1, 3, 2, 4, 5]
-    //     );
-    //     // positive moves
-    //     assert_eq!(
-    //         calculate_permutations(&[0, 0, 1, 0, 0, 0]),
-    //         [0, 1, 3, 2, 4, 5]
-    //     );
-    //     assert_eq!(
-    //         calculate_permutations(&[0, 0, 2, 0, 0, 0]),
-    //         [0, 1, 3, 4, 2, 5]
-    //     );
-    //     assert_eq!(
-    //         calculate_permutations(&[0, 0, 3, 0, 0, 0]),
-    //         [0, 1, 3, 4, 5, 2]
-    //     );
-    //     assert_eq!(
-    //         calculate_permutations(&[0, 0, 4, 0, 0, 0]),
-    //         [2, 0, 1, 3, 4, 5]
-    //     );
-    //     assert_eq!(
-    //         calculate_permutations(&[0, 0, 5, 0, 0, 0]),
-    //         [0, 2, 1, 3, 4, 5]
-    //     );
-    // }
-
+  
     #[test]
     fn parse_input_correct() {
         parse_input(TEST_INPUT).unwrap();
@@ -272,6 +295,14 @@ mod tests {
     fn permute_mix_correct() {
         let input = parse_input(TEST_INPUT).unwrap();
         let res = mix_once_permute(&input);
+        assert_eq!(res, [1, 2, -3, 4, 0, 3, -2]);
+    }
+
+    #[test]
+    fn calculate_permutations_fast_correct() {
+        let input = parse_input(TEST_INPUT).unwrap();
+        let positions = calculate_permutations_fast(&input);
+        let res = permute(&input, &positions);
         assert_eq!(res, [1, 2, -3, 4, 0, 3, -2]);
     }
 
