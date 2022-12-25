@@ -151,7 +151,7 @@ fn calculate_permutations_fast_old(moves: &[i64], echo: bool) -> Vec<usize> {
 
         let tgt_index = match mv {
             mv if *mv > 0 => (curr_idx as i64 + *mv + 1).rem_euclid(len as i64) as usize,
-            mv if *mv < 0 => (curr_idx as i64 + *mv).rem_euclid(len  as i64) as usize,
+            mv if *mv < 0 => (curr_idx as i64 + *mv).rem_euclid(len as i64) as usize,
             _ => curr_idx,
         };
         let tgt_pos = positions[tgt_index];
@@ -196,13 +196,12 @@ fn calculate_permutations_fast_old(moves: &[i64], echo: bool) -> Vec<usize> {
     positions
 }
 
-#[derive(Debug,Clone,Copy)]
-struct Pos(usize);
+fn positions_for<T>(moves: &[T]) -> Vec<usize> {
+    (0..moves.len()).collect()
+}
 
-fn calculate_permutations_fast(moves: &[i64], echo: bool) -> Vec<usize> {
+fn calculate_permutations_fast(positions: &mut Vec<usize>, moves: &[i64], echo: bool) {
     let len = moves.len();
-    let mut positions: Vec<usize> = (0..moves.len()).collect();
-
     if echo {
         println!(
             "indices {:?} arr {:?}",
@@ -214,16 +213,16 @@ fn calculate_permutations_fast(moves: &[i64], echo: bool) -> Vec<usize> {
         if *mv == 0 {
             continue;
         }
-        
+
         // find index for current position
-        let curr_idx = positions.iter().position(|p| *p==curr_pos).unwrap();
+        let curr_idx = positions.iter().position(|p| *p == curr_pos).unwrap();
 
         // next element index
         let mut next_idx = (curr_idx + 1).rem(len);
 
         // remove the current element
         positions.remove(curr_idx);
-        
+
         // bump next idx left if it's to the right of the removed index
         if next_idx >= curr_idx {
             next_idx -= 1;
@@ -232,7 +231,10 @@ fn calculate_permutations_fast(moves: &[i64], echo: bool) -> Vec<usize> {
         // find insert location in the array without the original element
         let insert_idx = (next_idx as i64 + *mv).rem_euclid(positions.len() as i64) as usize;
         if echo {
-            println!("insert at {insert_idx} that has position {}", positions[insert_idx]);
+            println!(
+                "insert at {insert_idx} that has position {}",
+                positions[insert_idx]
+            );
         }
         positions.insert(insert_idx, curr_pos);
         if echo {
@@ -243,7 +245,6 @@ fn calculate_permutations_fast(moves: &[i64], echo: bool) -> Vec<usize> {
             );
         }
     }
-    positions
 }
 
 fn permute(array: &[i64], positions: &[usize]) -> Vec<i64> {
@@ -276,7 +277,8 @@ fn part1(array: &[i64]) -> i64 {
 fn part1_alt(array: &[i64]) -> i64 {
     //let mixed = mix_once(array);
     //let mixed = mix_once_permute(array);
-    let positions = calculate_permutations_fast(array, false);
+    let mut positions = positions_for(array);
+    calculate_permutations_fast(&mut positions, array, false);
     let mixed = permute(array, &positions);
 
     // note: position of zero is the start; it doesn't matter what overall
@@ -337,14 +339,16 @@ fn scratch() {
     for m in 0..=6 * 6 {
         moves[2] = m;
         let perm = calculate_permutations(&moves);
-        let alt = calculate_permutations_fast(&moves, false);
+        let mut alt = positions_for(&moves);
+        calculate_permutations_fast(&mut alt, &moves, false);
         println!("{m}: {perm:?} {alt:?} {}", check_eq_rotate(&perm, &alt));
     }
     println!("negative moves --------");
     for m in 0..=6 * 6 {
         moves[2] = -m;
         let perm = calculate_permutations(&moves);
-        let alt = calculate_permutations_fast(&moves, false);
+        let mut alt = positions_for(&moves);
+        calculate_permutations_fast(&mut alt, &moves, false);
         println!("{m}: {perm:?} {alt:?} {}", check_eq_rotate(&perm, &alt));
     }
 
@@ -389,7 +393,8 @@ mod tests {
     #[test]
     fn calculate_permutations_fast_correct() {
         let input = parse_input(TEST_INPUT).unwrap();
-        let positions = calculate_permutations_fast(&input, true);
+        let mut positions = positions_for(&input);
+        calculate_permutations_fast(&mut positions, &input, true);
         let res = permute(&input, &positions);
         assert_eq_rotate(&res, &[1, 2, -3, 4, 0, 3, -2]);
     }
