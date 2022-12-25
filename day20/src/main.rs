@@ -126,7 +126,7 @@ fn calculate_permutations(moves: &[i64]) -> Vec<usize> {
     positions
 }
 
-fn calculate_permutations_fast(moves: &[i64], echo: bool) -> Vec<usize> {
+fn calculate_permutations_fast_old(moves: &[i64], echo: bool) -> Vec<usize> {
     let len = moves.len();
     let mut positions: Vec<usize> = (0..moves.len()).collect();
 
@@ -188,6 +188,56 @@ fn calculate_permutations_fast(moves: &[i64], echo: bool) -> Vec<usize> {
         if echo {
             println!(
                 "  indices {:?} arr {:?}",
+                positions,
+                permute(moves, &positions)
+            );
+        }
+    }
+    positions
+}
+
+#[derive(Debug,Clone,Copy)]
+struct Pos(usize);
+
+fn calculate_permutations_fast(moves: &[i64], echo: bool) -> Vec<usize> {
+    let len = moves.len();
+    let mut positions: Vec<usize> = (0..moves.len()).collect();
+
+    if echo {
+        println!(
+            "indices {:?} arr {:?}",
+            positions,
+            permute(moves, &positions)
+        );
+    }
+    for (curr_pos, mv) in moves.iter().enumerate() {
+        if *mv == 0 {
+            continue;
+        }
+        
+        // find index for current position
+        let curr_idx = positions.iter().position(|p| *p==curr_pos).unwrap();
+
+        // next element index
+        let mut next_idx = (curr_idx + 1).rem(len);
+
+        // remove the current element
+        positions.remove(curr_idx);
+        
+        // bump next idx left if it's to the right of the removed index
+        if next_idx >= curr_idx {
+            next_idx -= 1;
+        }
+
+        // find insert location in the array without the original element
+        let insert_idx = (next_idx as i64 + *mv).rem_euclid(positions.len() as i64) as usize;
+        if echo {
+            println!("insert at {insert_idx} that has position {}", positions[insert_idx]);
+        }
+        positions.insert(insert_idx, curr_pos);
+        if echo {
+            println!(
+                "indices {:?} arr {:?}",
                 positions,
                 permute(moves, &positions)
             );
@@ -287,7 +337,7 @@ fn scratch() {
     for m in 0..=6 * 6 {
         moves[2] = m;
         let perm = calculate_permutations(&moves);
-        let alt = calculate_permutations_fast(&moves, true);
+        let alt = calculate_permutations_fast(&moves, false);
         println!("{m}: {perm:?} {alt:?} {}", check_eq_rotate(&perm, &alt));
     }
     println!("negative moves --------");
