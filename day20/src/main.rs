@@ -256,7 +256,6 @@ fn main() -> AnyResult<()> {
 
     println!("expecting: 13289");
     println!("part1 result = {}", part1(&input));
-
     println!("part1_alt result = {}", part1_alt(&input));
 
     scratch();
@@ -270,17 +269,19 @@ fn scratch() {
     for m in 0..=6 * 6 {
         moves[2] = m;
         let perm = calculate_permutations(&moves);
-        println!("{m}: {perm:?}");
+        let alt = calculate_permutations_fast(&moves, false);
+        println!("{m}: {perm:?} {alt:?} {}", perm == alt);
     }
     println!("negative moves --------");
     for m in 0..=6 * 6 {
         moves[2] = -m;
         let perm = calculate_permutations(&moves);
-        println!("{m}: {perm:?}");
+        let alt = calculate_permutations_fast(&moves, false);
+        println!("{m}: {perm:?} {alt:?} {}", perm == alt);
     }
 
-    let example = [1, 2, -3, 3, -2, 0, 4];
-    calculate_permutations_fast(&example, true);
+    // let example = [1, 2, -3, 3, -2, 0, 4];
+    // calculate_permutations_fast(&example, true);
 }
 
 #[cfg(test)]
