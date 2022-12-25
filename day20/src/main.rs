@@ -151,7 +151,7 @@ fn calculate_permutations_fast(moves: &[i64], echo: bool) -> Vec<usize> {
 
         let tgt_index = match mv {
             mv if *mv > 0 => (curr_idx as i64 + *mv + 1).rem_euclid(len as i64) as usize,
-            mv if *mv < 0 => (curr_idx as i64 + *mv).rem_euclid(len as i64) as usize,
+            mv if *mv < 0 => (curr_idx as i64 + *mv).rem_euclid(len  as i64) as usize,
             _ => curr_idx,
         };
         let tgt_pos = positions[tgt_index];
@@ -183,13 +183,7 @@ fn calculate_permutations_fast(moves: &[i64], echo: bool) -> Vec<usize> {
         }
 
         let insert_idx = positions.iter().position(|&p| p == tgt_pos).unwrap();
-        if insert_idx == 0 {
-            // if it's at the start, add to the _end_ as per the rules
-            positions.push(orig_idx);
-        } else {
-            // otherwise insert before the designated element
-            positions.insert(insert_idx, orig_idx);
-        }
+        positions.insert(insert_idx, orig_idx);
 
         if echo {
             println!(
@@ -293,7 +287,7 @@ fn scratch() {
     for m in 0..=6 * 6 {
         moves[2] = m;
         let perm = calculate_permutations(&moves);
-        let alt = calculate_permutations_fast(&moves, false);
+        let alt = calculate_permutations_fast(&moves, true);
         println!("{m}: {perm:?} {alt:?} {}", check_eq_rotate(&perm, &alt));
     }
     println!("negative moves --------");
