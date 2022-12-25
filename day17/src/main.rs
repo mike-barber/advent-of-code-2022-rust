@@ -313,7 +313,7 @@ impl History {
 
 fn part2(jet_pattern: &[JetIndex]) -> usize {
     const TARGET_ROCKS: usize = 1000000000000;
-    
+
     let mut jets_iter = jet_pattern.iter().cycle().copied();
     let mut problem = Problem::new(8);
     let mut history = History::default();

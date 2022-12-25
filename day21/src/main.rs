@@ -90,7 +90,7 @@ fn part1(monkeys: &Monkeys) -> Option<i64> {
     calculate("root", monkeys, &mut values).map(|v| v.round() as i64)
 }
 
-/// Determine value for `humn` such that the root node's left and right 
+/// Determine value for `humn` such that the root node's left and right
 /// operands are equal. We do this using the secant method to refine
 /// our `humn` input.
 fn part2(monkeys: &Monkeys) -> Option<i64> {
