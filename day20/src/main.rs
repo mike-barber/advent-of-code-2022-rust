@@ -295,6 +295,31 @@ fn part1_alt(array: &[i64]) -> i64 {
     sum
 }
 
+fn part2(array: &[i64]) -> i64 {
+    let moves = array.iter().map(|v| v * PART2_KEY).collect_vec();
+    
+    let mut positions = positions_for(&moves);
+    for i in 1..=10 {
+        println!("permutation iteration {i}");
+        calculate_permutations_fast(&mut positions, &moves, false);
+    }
+
+    let mixed = permute(&moves, &positions);
+
+    // note: position of zero is the start; it doesn't matter what overall
+    // rotation the array has, as we're starting the cycle here.
+    let pos_zero = mixed.iter().position(|a| *a == 0).unwrap();
+
+    let mut sum = 0;
+    for idx in [1000, 2000, 3000] {
+        let val = mixed.iter().cycle().skip(pos_zero).nth(idx).unwrap();
+        dbg!(val);
+        sum += val;
+    }
+
+    sum
+}
+
 fn main() -> AnyResult<()> {
     let input = parse_input(&read_file("day20/input.txt")?)?;
 
@@ -302,7 +327,8 @@ fn main() -> AnyResult<()> {
     println!("part1 result = {}", part1(&input));
     println!("part1_alt result = {}", part1_alt(&input));
 
-    scratch();
+    //scratch();
+    println!("part2 result = {}", part2(&input));
 
     Ok(())
 }
@@ -407,8 +433,26 @@ mod tests {
     }
 
     #[test]
+    fn part2_mix_correct() {
+        let mut moves = parse_input(TEST_INPUT).unwrap();
+        moves.iter_mut().for_each(|v| *v *= PART2_KEY);
+        println!("initial: {moves:?}");
+
+        let mut positions = positions_for(&moves);
+        for i in 1..=10 {
+            calculate_permutations_fast(&mut positions, &moves, false);
+            let permuted = permute(&moves, &positions);
+            println!("iteration {i} => {permuted:?}");
+        }
+
+        let permuted = permute(&moves, &positions);
+        assert_eq_rotate(&permuted, &[0, -2434767459, 1623178306, 3246356612, -1623178306, 2434767459, 811589153]);
+    }
+
+    #[test]
     fn part2_correct() {
-        let mut input = parse_input(TEST_INPUT).unwrap();
-        input.iter_mut().for_each(|v| *v *= PART2_KEY);
+        let moves = parse_input(TEST_INPUT).unwrap();
+        let res = part2(&moves);
+        assert_eq!(res, 1623178306);
     }
 }
