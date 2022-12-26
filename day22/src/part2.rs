@@ -1,8 +1,4 @@
-use std::{
-    cmp::Ordering,
-    collections::HashMap,
-    fmt::Display,
-};
+use std::{cmp::Ordering, collections::HashMap, fmt::Display};
 
 use crate::{BlockType, Direction, Instruction, Map};
 use anyhow::bail;
@@ -39,23 +35,6 @@ impl Connection {
         };
         Connection(a, b)
     }
-
-    // // check if edge is contained in the connection
-    // pub fn contains(&self, a: Edge) -> bool {
-    //     self.0 == a || self.1 == a
-    // }
-
-    // // get other edge for this connection, given one of
-    // // the edges
-    // pub fn connection_to(&self, near: Edge) -> Option<Edge> {
-    //     if near == self.0 {
-    //         Some(self.1)
-    //     } else if near == self.1 {
-    //         Some(self.0)
-    //     } else {
-    //         None
-    //     }
-    // }
 
     pub fn first(&self) -> Edge {
         self.0
@@ -104,10 +83,16 @@ pub struct Position {
 }
 impl Position {
     fn turn_left(&self) -> Self {
-        Position { dir: self.dir.left(), ..*self }
+        Position {
+            dir: self.dir.left(),
+            ..*self
+        }
     }
     fn turn_right(&self) -> Self {
-        Position { dir: self.dir.right(), ..*self }
+        Position {
+            dir: self.dir.right(),
+            ..*self
+        }
     }
 }
 
@@ -115,6 +100,7 @@ impl Position {
 pub struct Problem {
     edge_len: usize,
     faces: Vec<Map>,
+    faces_top_left: Vec<(usize, usize)>,
     topology: Topology,
     instructions: Vec<Instruction>,
 }
@@ -135,15 +121,26 @@ impl Problem {
             }
         } else {
             // transition to next face edge (note that the faces are labelled 1-indexed)
-            let next_edge = self.topology.0.get(&Edge::new(pos.face + 1, pos.dir)).unwrap();
+            let next_edge = self
+                .topology
+                .0
+                .get(&Edge::new(pos.face + 1, pos.dir))
+                .unwrap();
             let next_face = next_edge.0 - 1;
             let next_dir = next_edge.1.opposite();
 
+            // this is our location on the existing edge
+            let loc_on_existing_edge = match pos.dir {
+                L | R => row,
+                U | D => col,
+            };
+
+            // this is our translated new position on the next edge
             let (r, c) = match next_edge.1 {
-                L => (row, 0),
-                R => (row, self.edge_len as i32 - 1),
-                U => (0, col),
-                D => (self.edge_len as i32 - 1, col),
+                L => (loc_on_existing_edge, 0),
+                R => (loc_on_existing_edge, self.edge_len as i32 - 1),
+                U => (0, loc_on_existing_edge),
+                D => (self.edge_len as i32 - 1, loc_on_existing_edge),
             };
 
             Position {
@@ -166,9 +163,9 @@ impl Problem {
             face: 0,
             r: 0,
             c: 0,
-            dir: R
+            dir: R,
         };
-    
+
         for inst in self.instructions.iter() {
             match inst {
                 Instruction::Move(n) => {
@@ -186,10 +183,13 @@ impl Problem {
                 Instruction::TurnRight => pos = pos.turn_right(),
             }
         }
-    
+
         println!("final position {pos:?}");
-        let score = 1000 * (pos.r + 1)
-            + 4 * (pos.c + 1)
+        let face_num = pos.face;
+        let (origin_r, origin_c) = self.faces_top_left[face_num];
+
+        let score = 1000 * (pos.r + origin_r + 1)
+            + 4 * (pos.c + origin_c + 1)
             + match pos.dir {
                 // Facing is 0 for right (>), 1 for down (v), 2 for left (<), and 3 for up (^)
                 R => 0,
@@ -246,11 +246,13 @@ pub fn parse_input(input: &str, edge_len: usize, topology: Topology) -> AnyResul
     let block_cols = total_cols / edge_len;
 
     let mut faces: Vec<DMatrix<BlockType>> = vec![];
+    let mut faces_top_left = vec![];
     for br in 0..block_rows {
         let lines = &map_input[edge_len * br..edge_len * (br + 1)];
         for bc in 0..block_cols {
             if let Some(face) = parse_block(lines, edge_len * bc, edge_len) {
                 faces.push(face);
+                faces_top_left.push((edge_len * br, edge_len * bc));
             }
         }
     }
@@ -278,6 +280,7 @@ pub fn parse_input(input: &str, edge_len: usize, topology: Topology) -> AnyResul
     Ok(Problem {
         edge_len,
         faces,
+        faces_top_left,
         topology,
         instructions,
     })
