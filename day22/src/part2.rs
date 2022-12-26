@@ -74,12 +74,12 @@ impl Topology {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Position {
-    face: usize,
-    r: usize,
-    c: usize,
-    dir: Direction,
+    pub face: usize,
+    pub r: usize,
+    pub c: usize,
+    pub dir: Direction,
 }
 impl Position {
     fn turn_left(&self) -> Self {
@@ -98,14 +98,14 @@ impl Position {
 
 #[derive(Debug, Clone)]
 pub struct Problem {
-    edge_len: usize,
-    faces: Vec<Map>,
-    faces_top_left: Vec<(usize, usize)>,
-    topology: Topology,
-    instructions: Vec<Instruction>,
+    pub edge_len: usize,
+    pub faces: Vec<Map>,
+    pub faces_top_left: Vec<(usize, usize)>,
+    pub topology: Topology,
+    pub instructions: Vec<Instruction>,
 }
 impl Problem {
-    fn next_position(&self, pos: Position) -> Position {
+    pub fn next_position(&self, pos: Position) -> Position {
         let (dr, dc) = pos.dir.delta();
         let row = pos.r as i32 + dr;
         let col = pos.c as i32 + dc;
@@ -171,11 +171,10 @@ impl Problem {
                 Instruction::Move(n) => {
                     for _ in 0..*n {
                         let new_pos = self.next_position(pos);
-                        let block = self.block_type(new_pos);
-                        if block == BlockType::Wall {
-                            break;
-                        } else {
-                            pos = new_pos;
+                        match self.block_type(new_pos) {
+                            BlockType::Wall => break,
+                            BlockType::Open => { pos = new_pos },
+                            BlockType::Empty => panic!("unexpected block type for part2")
                         }
                     }
                 }
@@ -187,6 +186,7 @@ impl Problem {
         println!("final position {pos:?}");
         let face_num = pos.face;
         let (origin_r, origin_c) = self.faces_top_left[face_num];
+        println!("face origin: {origin_r}, {origin_c}");
 
         let score = 1000 * (pos.r + origin_r + 1)
             + 4 * (pos.c + origin_c + 1)
@@ -319,7 +319,7 @@ mod tests {
         let problem = parse_input(TEST_INPUT, 4, create_test_topology()).unwrap();
         problem.faces.iter().enumerate().for_each(|(i, f)| {
             println!("{i}");
-            println! {"{f}"};
+            println!("{f}");
         });
     }
 

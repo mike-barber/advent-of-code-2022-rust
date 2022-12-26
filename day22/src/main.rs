@@ -1,7 +1,7 @@
 use common::{read_file, AnyResult};
 
 use day22::{
-    part2::{Connection, Edge, Topology},
+    part2::{Connection, Edge, Position, Topology},
     *,
 };
 use Direction::*;
@@ -32,8 +32,33 @@ fn main() -> AnyResult<()> {
 
     let topology = part2_topology()?;
     let part2_problem = part2::parse_input(&input, 50, topology)?;
+
+    part2_problem.faces.iter().enumerate().for_each(|(i, f)| {
+        println!("{i}");
+        println!("{f}");
+    });
+
+    // check cycles
+    for dir in [U, D, L, R] {
+        println!("Direction: {dir}-------------------------------------");
+        let init_pos = Position {
+            face: 0,
+            r: 0,
+            c: 0,
+            dir,
+        };
+        println!("initial: {init_pos:?}");
+        let mut curr_pos = init_pos;
+        for i in 1..=(50 * 4) {
+            curr_pos = part2_problem.next_position(curr_pos);
+            println!("{i} {curr_pos:?}");
+        }
+        assert_eq!(init_pos, curr_pos);
+    }
+
     println!("part2 result: {}", part2_problem.run());
     println!("note: 109077 is too high");
+
 
     Ok(())
 }
