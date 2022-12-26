@@ -7,12 +7,26 @@ use nalgebra::DMatrix;
 use BlockType::*;
 use Direction::*;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Direction {
     R,
     D,
     L,
     U,
+}
+impl Display for Direction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                R => 'R',
+                D => 'D',
+                L => 'L',
+                U => 'U',
+            }
+        )
+    }
 }
 impl Direction {
     fn left(&self) -> Self {
@@ -68,7 +82,6 @@ impl Display for BlockType {
 
 pub type Map = DMatrix<BlockType>;
 pub type Pos = (usize, usize);
-
 
 #[cfg(test)]
 mod tests {
