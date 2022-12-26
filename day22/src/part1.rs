@@ -1,4 +1,4 @@
-use crate::{BlockType, Direction, Instruction, Map, Pos};
+use crate::{BlockType, Direction, Instruction, Map};
 use anyhow::bail;
 use common::*;
 use nalgebra::DMatrix;
@@ -6,6 +6,8 @@ use regex::Regex;
 
 use BlockType::*;
 use Direction::*;
+
+pub type Pos = (usize, usize);
 
 #[derive(Debug, Clone)]
 pub struct Problem {
