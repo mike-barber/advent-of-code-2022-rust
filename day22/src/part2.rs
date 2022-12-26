@@ -184,13 +184,25 @@ impl Problem {
         }
 
         println!("final position {pos:?}");
-        let face_num = pos.face;
-        let (origin_r, origin_c) = self.faces_top_left[face_num];
-        println!("face origin: {origin_r}, {origin_c}");
 
-        let score = 1000 * (pos.r + origin_r + 1)
-            + 4 * (pos.c + origin_c + 1)
-            + match pos.dir {
+        // get the origin row and column for this face
+        let face_num = pos.face;
+        let (face_origin_r, face_origin_c) = self.faces_top_left[face_num];
+        println!("face origin: {face_origin_r}, {face_origin_c}");
+
+        // // find the direction on the original map corresponding to the current direction
+        // // on this face; I probably should have stored orientation vectors, but here 
+        // // we just proceed in the given direction until we hit face 0 (which has the
+        // // same directions as the map)
+        // let mut p = pos;
+        // while p.face != 0 {
+        //     p = self.next_position(p);
+        // }
+        // let origin_dir = p.dir;
+
+        let score = 1000 * (pos.r + face_origin_r + 1)
+            + 4 * (pos.c + face_origin_c + 1)
+            + match origin_dir {
                 // Facing is 0 for right (>), 1 for down (v), 2 for left (<), and 3 for up (^)
                 R => 0,
                 D => 1,
