@@ -6,6 +6,9 @@ use day22::{
 };
 use Direction::*;
 
+/// This probably could have been done a bit better. Two things could be improved:
+/// - automatically determine the topology from the layout
+/// - specify the topology using the _vertices_ rather than the _edges_
 fn part2_topology() -> AnyResult<Topology> {
     let connections = [
         Connection::new(Edge::new(1, U), Edge::new(6, L), false),
