@@ -102,7 +102,6 @@ pub fn run(problem: &Problem) -> usize {
         }
     }
 
-    println!("final position {pos:?} and direction {dir:?}");
     let score = 1000 * (pos.0 + 1)
         + 4 * (pos.1 + 1)
         + match dir {
@@ -112,13 +111,14 @@ pub fn run(problem: &Problem) -> usize {
             L => 2,
             U => 3,
         };
+    println!("final position {pos:?} and direction {dir:?}; score: {score}");
     score
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::tests::TEST_INPUT;
     use super::*;
+    use crate::tests::TEST_INPUT;
 
     #[test]
     fn parse_input_correct() {

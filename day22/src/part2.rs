@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, collections::HashMap, fmt::Display};
+use std::{collections::HashMap, fmt::Display};
 
 use crate::{BlockType, Direction, Instruction, Map};
 use anyhow::bail;
@@ -22,43 +22,37 @@ impl Display for Edge {
     }
 }
 
+/// Definition of connections between edges, with `invert_coord` specifying
+/// if the direction along the edge is inverted as we cross it. This was probably
+/// a suboptimal design decision: it probably would have been better to specify
+/// the vertices (A..H) for each square instead of the edges, since that would
+/// encode the direction too.
 #[derive(Debug, Clone, Copy)]
-pub struct Connection(Edge, Edge);
+pub struct Connection {
+    a: Edge,
+    b: Edge,
+    invert_coord: bool,
+}
 
 impl Connection {
-    // create new connection with canonical ordering
-    pub fn new(a: Edge, b: Edge) -> Self {
-        let (a, b) = match a.cmp(&b) {
-            Ordering::Less => (a, b),
-            Ordering::Equal => (a, b),
-            Ordering::Greater => (b, a),
-        };
-        Connection(a, b)
-    }
-
-    pub fn first(&self) -> Edge {
-        self.0
-    }
-
-    pub fn second(&self) -> Edge {
-        self.1
+    // create new connection
+    pub fn new(a: Edge, b: Edge, invert_coord: bool) -> Self {
+        Connection { a, b, invert_coord }
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct Topology(HashMap<Edge, Edge>);
+pub struct Topology(HashMap<Edge, (Edge, bool)>);
 impl Topology {
     pub fn new(connections: &[Connection]) -> AnyResult<Self> {
         // check for invalid edges - we're expecting ONE edge listed
         let mut map = HashMap::new();
         for con in connections {
-            //println!("map {map:?} + connection {con:?}");
-
-            if let Some(_) = map.insert(con.first(), con.second()) {
-                bail!("attempted to insert duplicate edge {}", con.first())
+            if map.insert(con.a, (con.b, con.invert_coord)).is_some() {
+                bail!("attempted to insert duplicate edge {}", con.a)
             }
-            if let Some(_) = map.insert(con.second(), con.first()) {
-                bail!("attempted to insert duplicate edge {}", con.second())
+            if map.insert(con.b, (con.a, con.invert_coord)).is_some() {
+                bail!("attempted to insert duplicate edge {}", con.b)
             }
         }
 
@@ -121,7 +115,7 @@ impl Problem {
             }
         } else {
             // transition to next face edge (note that the faces are labelled 1-indexed)
-            let next_edge = self
+            let (next_edge, invert) = self
                 .topology
                 .0
                 .get(&Edge::new(pos.face + 1, pos.dir))
@@ -129,10 +123,15 @@ impl Problem {
             let next_face = next_edge.0 - 1;
             let next_dir = next_edge.1.opposite();
 
-            // this is our location on the existing edge
+            // this is our location on the existing edge, inverted if required
             let loc_on_existing_edge = match pos.dir {
                 L | R => row,
                 U | D => col,
+            };
+
+            let loc_on_existing_edge = match invert {
+                false => loc_on_existing_edge,
+                true => self.edge_len as i32 - 1 - loc_on_existing_edge,
             };
 
             // this is our translated new position on the next edge
@@ -173,8 +172,8 @@ impl Problem {
                         let new_pos = self.next_position(pos);
                         match self.block_type(new_pos) {
                             BlockType::Wall => break,
-                            BlockType::Open => { pos = new_pos },
-                            BlockType::Empty => panic!("unexpected block type for part2")
+                            BlockType::Open => pos = new_pos,
+                            BlockType::Empty => panic!("unexpected block type for part2"),
                         }
                     }
                 }
@@ -183,32 +182,21 @@ impl Problem {
             }
         }
 
-        println!("final position {pos:?}");
-
         // get the origin row and column for this face
         let face_num = pos.face;
         let (face_origin_r, face_origin_c) = self.faces_top_left[face_num];
         println!("face origin: {face_origin_r}, {face_origin_c}");
 
-        // // find the direction on the original map corresponding to the current direction
-        // // on this face; I probably should have stored orientation vectors, but here 
-        // // we just proceed in the given direction until we hit face 0 (which has the
-        // // same directions as the map)
-        // let mut p = pos;
-        // while p.face != 0 {
-        //     p = self.next_position(p);
-        // }
-        // let origin_dir = p.dir;
-
         let score = 1000 * (pos.r + face_origin_r + 1)
             + 4 * (pos.c + face_origin_c + 1)
-            + match origin_dir {
+            + match pos.dir {
                 // Facing is 0 for right (>), 1 for down (v), 2 for left (<), and 3 for up (^)
                 R => 0,
                 D => 1,
                 L => 2,
                 U => 3,
             };
+        println!("score: {score}");
         score
     }
 }
@@ -305,18 +293,18 @@ mod tests {
 
     fn create_test_topology() -> Topology {
         let connections = [
-            Connection::new(Edge::new(4, U), Edge::new(1, D)),
-            Connection::new(Edge::new(4, D), Edge::new(5, U)),
-            Connection::new(Edge::new(4, L), Edge::new(3, R)),
-            Connection::new(Edge::new(4, R), Edge::new(6, U)),
-            Connection::new(Edge::new(3, U), Edge::new(1, L)),
-            Connection::new(Edge::new(3, D), Edge::new(5, L)),
-            Connection::new(Edge::new(3, L), Edge::new(2, R)),
-            Connection::new(Edge::new(2, U), Edge::new(1, U)),
-            Connection::new(Edge::new(2, D), Edge::new(5, D)),
-            Connection::new(Edge::new(2, L), Edge::new(6, D)),
-            Connection::new(Edge::new(1, R), Edge::new(6, R)),
-            Connection::new(Edge::new(5, R), Edge::new(6, L)),
+            Connection::new(Edge::new(4, U), Edge::new(1, D), false),
+            Connection::new(Edge::new(4, D), Edge::new(5, U), false),
+            Connection::new(Edge::new(4, L), Edge::new(3, R), false),
+            Connection::new(Edge::new(4, R), Edge::new(6, U), false),
+            Connection::new(Edge::new(3, U), Edge::new(1, L), false),
+            Connection::new(Edge::new(3, D), Edge::new(5, L), false),
+            Connection::new(Edge::new(3, L), Edge::new(2, R), false),
+            Connection::new(Edge::new(2, U), Edge::new(1, U), false),
+            Connection::new(Edge::new(2, D), Edge::new(5, D), false),
+            Connection::new(Edge::new(2, L), Edge::new(6, D), false),
+            Connection::new(Edge::new(1, R), Edge::new(6, R), false),
+            Connection::new(Edge::new(5, R), Edge::new(6, L), false),
         ];
         Topology::new(&connections).unwrap()
     }
