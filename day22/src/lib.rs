@@ -37,6 +37,7 @@ impl Direction {
             U => L,
         }
     }
+
     fn right(&self) -> Self {
         match self {
             R => D,
@@ -45,6 +46,16 @@ impl Direction {
             U => R,
         }
     }
+
+    fn opposite(&self) -> Self {
+        match self {
+            R => L,
+            D => U,
+            L => R,
+            U => D,
+        }
+    }
+
     // returns row and column
     fn delta(&self) -> (i32, i32) {
         match self {

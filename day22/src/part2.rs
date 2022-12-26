@@ -1,7 +1,7 @@
 use std::{
     cmp::Ordering,
     collections::HashMap,
-    fmt::{write, Display},
+    fmt::Display,
 };
 
 use crate::{BlockType, Direction, Instruction, Map};
@@ -66,7 +66,7 @@ impl Connection {
     }
 }
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub struct Topology(HashMap<Edge, Edge>);
 impl Topology {
     pub fn new(connections: &[Connection]) -> AnyResult<Self> {
@@ -95,41 +95,117 @@ impl Topology {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct Position {
-    face: usize, 
-    r: usize, 
+    face: usize,
+    r: usize,
     c: usize,
-    dir: Direction
+    dir: Direction,
+}
+impl Position {
+    fn turn_left(&self) -> Self {
+        Position { dir: self.dir.left(), ..*self }
+    }
+    fn turn_right(&self) -> Self {
+        Position { dir: self.dir.right(), ..*self }
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct Problem {
+    edge_len: usize,
     faces: Vec<Map>,
     topology: Topology,
     instructions: Vec<Instruction>,
 }
 impl Problem {
-    pub fn find_next(&self, pos: Position) -> (BlockType, Position) {
-        // let (dr, dc) = dir.delta();
-        // let mut r = pos.0 as i32;
-        // let mut c = pos.1 as i32;
-        // loop {
-        //     r = (r + dr).rem_euclid(self.map.nrows() as i32);
-        //     c = (c + dc).rem_euclid(self.map.ncols() as i32);
+    fn next_position(&self, pos: Position) -> Position {
+        let (dr, dc) = pos.dir.delta();
+        let row = pos.r as i32 + dr;
+        let col = pos.c as i32 + dc;
 
-        //     let new_pos = (r as usize, c as usize);
-        //     let block = self.map[new_pos];
-        //     if block != Empty {
-        //         return (block, new_pos);
-        //     }
-        // }
+        let dim = 0..self.edge_len as i32;
 
-        todo!()
+        if dim.contains(&row) && dim.contains(&col) {
+            // stay on this face
+            Position {
+                r: row as usize,
+                c: col as usize,
+                ..pos
+            }
+        } else {
+            // transition to next face edge (note that the faces are labelled 1-indexed)
+            let next_edge = self.topology.0.get(&Edge::new(pos.face + 1, pos.dir)).unwrap();
+            let next_face = next_edge.0 - 1;
+            let next_dir = next_edge.1.opposite();
+
+            let (r, c) = match next_edge.1 {
+                L => (row, 0),
+                R => (row, self.edge_len as i32 - 1),
+                U => (0, col),
+                D => (self.edge_len as i32 - 1, col),
+            };
+
+            Position {
+                face: next_face,
+                r: r as usize,
+                c: c as usize,
+                dir: next_dir,
+            }
+        }
+    }
+
+    fn block_type(&self, pos: Position) -> BlockType {
+        let face = &self.faces[pos.face];
+        face[(pos.r, pos.c)]
+    }
+
+    pub fn run(&self) -> usize {
+        // initial position
+        let mut pos = Position {
+            face: 0,
+            r: 0,
+            c: 0,
+            dir: R
+        };
+    
+        for inst in self.instructions.iter() {
+            match inst {
+                Instruction::Move(n) => {
+                    for _ in 0..*n {
+                        let new_pos = self.next_position(pos);
+                        let block = self.block_type(new_pos);
+                        if block == BlockType::Wall {
+                            break;
+                        } else {
+                            pos = new_pos;
+                        }
+                    }
+                }
+                Instruction::TurnLeft => pos = pos.turn_left(),
+                Instruction::TurnRight => pos = pos.turn_right(),
+            }
+        }
+    
+        println!("final position {pos:?}");
+        let score = 1000 * (pos.r + 1)
+            + 4 * (pos.c + 1)
+            + match pos.dir {
+                // Facing is 0 for right (>), 1 for down (v), 2 for left (<), and 3 for up (^)
+                R => 0,
+                D => 1,
+                L => 2,
+                U => 3,
+            };
+        score
     }
 }
 
-pub fn parse_block(lines: &[&str], start_idx: usize, edge_len: usize) -> Option<DMatrix<BlockType>> {
-
+pub fn parse_block(
+    lines: &[&str],
+    start_idx: usize,
+    edge_len: usize,
+) -> Option<DMatrix<BlockType>> {
     let mut map = DMatrix::repeat(edge_len, edge_len, BlockType::Empty);
     for row in 0..edge_len {
         let line = lines[row];
@@ -138,14 +214,14 @@ pub fn parse_block(lines: &[&str], start_idx: usize, edge_len: usize) -> Option<
                 ' ' => Empty,
                 '.' => Open,
                 '#' => Wall,
-                _ => panic!("invalid map character: {}", ch)
+                _ => panic!("invalid map character: {}", ch),
             };
             map[(row, col)] = block_type;
         }
     }
 
     if map.iter().any(|v| *v == BlockType::Empty) {
-        return None
+        return None;
     }
 
     Some(map)
@@ -169,9 +245,9 @@ pub fn parse_input(input: &str, edge_len: usize, topology: Topology) -> AnyResul
     let block_rows = total_rows / edge_len;
     let block_cols = total_cols / edge_len;
 
-    let mut faces :Vec<DMatrix<BlockType>> = vec![];
+    let mut faces: Vec<DMatrix<BlockType>> = vec![];
     for br in 0..block_rows {
-        let lines = &map_input[edge_len * br .. edge_len * (br+1)];
+        let lines = &map_input[edge_len * br..edge_len * (br + 1)];
         for bc in 0..block_cols {
             if let Some(face) = parse_block(lines, edge_len * bc, edge_len) {
                 faces.push(face);
@@ -199,7 +275,12 @@ pub fn parse_input(input: &str, edge_len: usize, topology: Topology) -> AnyResul
         }
     }
 
-    Ok(Problem { faces, topology, instructions })
+    Ok(Problem {
+        edge_len,
+        faces,
+        topology,
+        instructions,
+    })
 }
 
 #[cfg(test)]
@@ -233,16 +314,16 @@ mod tests {
     #[test]
     fn parse_input_correct() {
         let problem = parse_input(TEST_INPUT, 4, create_test_topology()).unwrap();
-        problem.faces.iter().enumerate().for_each(|(i,f)| {
+        problem.faces.iter().enumerate().for_each(|(i, f)| {
             println!("{i}");
-            println!{"{f}"};
+            println! {"{f}"};
         });
     }
 
-    // #[test]
-    // fn part2_correct() {
-    //     let problem = parse_input(TEST_INPUT).unwrap();
-    //     let res = run(&problem);
-    //     assert_eq!(res, 6032);
-    // }
+    #[test]
+    fn part2_correct() {
+        let problem = parse_input(TEST_INPUT, 4, create_test_topology()).unwrap();
+        let res = problem.run();
+        assert_eq!(res, 5031);
+    }
 }
