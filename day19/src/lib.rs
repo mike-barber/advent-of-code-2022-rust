@@ -7,8 +7,8 @@ use priority_queue::PriorityQueue;
 use rustc_hash::{FxHashSet, FxHasher};
 use std::{
     collections::{HashMap, HashSet, VecDeque},
-    hash::{Hash, BuildHasherDefault},
-    str::FromStr,
+    hash::{BuildHasherDefault, Hash},
+    str::FromStr, time::Instant,
 };
 use Mineral::*;
 
@@ -51,12 +51,33 @@ pub struct Blueprint {
 }
 impl Blueprint {
     pub fn to_spec(&self, max_time: usize) -> BlueprintSpec {
+        let ore_robot = self.ore_robot.to_spec();
+        let clay_robot = self.clay_robot.to_spec();
+        let obsidian_robot = self.obsidian_robot.to_spec();
+        let geode_robot = self.geode_robot.to_spec();
+
+        // calculate maximum possible consumption rate, given that we can
+        // only build a single robot each minute: this is the max of resources
+        // required across all robots.
+        let mut maximum_useful_robots = Vector4::zeros();
+        for i in 0..3 {
+            maximum_useful_robots[i] = ore_robot[i]
+                .max(clay_robot[i])
+                .max(obsidian_robot[i])
+                .max(geode_robot[i]);
+        }
+        // no limit on geodes
+        maximum_useful_robots[3] = i32::MAX;
+
+        //dbg!(&maximum_useful_robots);
+
         BlueprintSpec {
             max_time,
-            ore_robot: self.ore_robot.to_spec(),
-            clay_robot: self.clay_robot.to_spec(),
-            obsidian_robot: self.obsidian_robot.to_spec(),
-            geode_robot: self.geode_robot.to_spec(),
+            ore_robot,
+            clay_robot,
+            obsidian_robot,
+            geode_robot,
+            maximum_useful_robots,
         }
     }
 }
@@ -80,6 +101,7 @@ pub struct BlueprintSpec {
     pub clay_robot: Vector4<i32>,
     pub obsidian_robot: Vector4<i32>,
     pub geode_robot: Vector4<i32>,
+    pub maximum_useful_robots: Vector4<i32>,
 }
 impl BlueprintSpec {
     pub fn required_resources(&self, robot: Mineral) -> &Vector4<i32> {
@@ -146,15 +168,29 @@ pub type PossibleStates = ArrayVec<State, 5>;
 pub fn possible_states_from(spec: &BlueprintSpec, state: &State) -> PossibleStates {
     let mut possible = ArrayVec::new();
 
-    // try robots; highest-value first
-    for robot in [Geode, Obsidian, Clay, Ore] {
-        if let Some(s) = try_advance_with(spec, state, robot) {
-            possible.push(s);
+    // try building Geode robot; and this is greedy -- only consider other alternatives
+    // if we can't do this.
+    if let Some(s) = try_advance_with(spec, state, Geode) {
+        possible.push(s);
+    } else {
+        for robot in [Obsidian, Clay, Ore] {
+            // check that we're below the limit for the number of robots of this type:
+            // there's no point building more than required.
+            let maximum_useful = spec.maximum_useful_robots[robot as usize];
+            if state.robots[robot as usize] >= maximum_useful {
+                continue;
+            }
+
+            // otherwise consider building one if possible
+            if let Some(s) = try_advance_with(spec, state, robot) {
+                possible.push(s);
+            }
         }
+
+        // add time advance with no new robots
+        possible.push(state.advance());
     }
 
-    // add time advance with no new robots
-    possible.push(state.advance());
     possible
 }
 
@@ -214,7 +250,10 @@ pub fn explore_dfs_max(spec: &BlueprintSpec, state: &State, global_best: &mut Op
 pub fn explore_prio_max(spec: &BlueprintSpec) -> Option<State> {
     let mut global_best = None;
 
-    let mut visited: FxHashSet<State> = HashSet::with_hasher(BuildHasherDefault::<FxHasher>::default());
+    let mut rejected_count = 0;
+
+    let mut visited: FxHashSet<State> =
+        HashSet::with_hasher(BuildHasherDefault::<FxHasher>::default());
     let mut queue: PriorityQueue<State, i32> = PriorityQueue::new();
 
     let initial = State::new();
@@ -250,9 +289,15 @@ pub fn explore_prio_max(spec: &BlueprintSpec) -> Option<State> {
 
                 // otherwise add to queue for exploration
                 queue.push(w, max_potential);
+            } else {
+                // debugging
+                rejected_count += 1;
             }
         }
     }
+
+    let visited_count = visited.len();
+    dbg!((visited_count, rejected_count));
 
     global_best
 }
@@ -261,8 +306,9 @@ pub fn part1(blueprints: &[Blueprint]) -> i32 {
     let mut sum = 0;
     for bp in blueprints {
         let spec = bp.to_spec(TIME_MAX_PART1);
-        let mut best = None;
-        explore_dfs_max(&spec, &State::new(), &mut best);
+        // let mut best = None;
+        // explore_dfs_max(&spec, &State::new(), &mut best);
+        let best = explore_prio_max(&spec);
 
         let id = bp.id;
         let geodes = best.map(|b| b.resources[Geode as usize]).unwrap_or(0);
@@ -276,13 +322,17 @@ pub fn part1(blueprints: &[Blueprint]) -> i32 {
 pub fn part2(blueprints: &[Blueprint]) -> i32 {
     let mut product = 1;
     for bp in blueprints.iter().take(3) {
+        let t0 = Instant::now();
+        
         let spec = bp.to_spec(TIME_MAX_PART2);
-        let mut best = None;
-        explore_dfs_max(&spec, &State::new(), &mut best);
+        //let mut best = None;
+        //explore_dfs_max(&spec, &State::new(), &mut best);
+        let best = explore_prio_max(&spec);
 
         let id = bp.id;
         let geodes = best.unwrap().resources[Geode as usize];
-        println!("part2 id {id} with {geodes} geodes");
+        let elapsed = Instant::now() - t0;
+        println!("part2 id {id} with {geodes} geodes after {elapsed:#?}");
 
         product *= geodes;
     }
