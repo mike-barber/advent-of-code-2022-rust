@@ -8,7 +8,8 @@ use rustc_hash::{FxHashSet, FxHasher};
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     hash::{BuildHasherDefault, Hash},
-    str::FromStr, time::Instant,
+    str::FromStr,
+    time::Instant,
 };
 use Mineral::*;
 
@@ -252,8 +253,7 @@ pub fn explore_prio_max(spec: &BlueprintSpec) -> Option<State> {
 
     let mut rejected_count = 0;
 
-    let mut visited: FxHashSet<State> =
-        HashSet::with_hasher(BuildHasherDefault::<FxHasher>::default());
+    let mut visited: FxHashSet<State> = FxHashSet::default();
     let mut queue: PriorityQueue<State, i32> = PriorityQueue::new();
 
     let initial = State::new();
@@ -323,7 +323,7 @@ pub fn part2(blueprints: &[Blueprint]) -> i32 {
     let mut product = 1;
     for bp in blueprints.iter().take(3) {
         let t0 = Instant::now();
-        
+
         let spec = bp.to_spec(TIME_MAX_PART2);
         //let mut best = None;
         //explore_dfs_max(&spec, &State::new(), &mut best);
