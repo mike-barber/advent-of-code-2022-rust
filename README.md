@@ -7,7 +7,7 @@ These are the main solutions. Don't expect these to be concise - many will conta
 They are all complete, but some are far from perfect and could use a bit more work:
 
 - Day 16 completes, but takes a 4.5 minutes to run. It could be more efficient.
-- Day 19 completes, but takes about 80 minutes to run. A more efficient algorithm would do a better job here. It's currently a pretty basic branch-and-bound approach.
+- Day 19 completes, but originally took about 80 minutes to run; I have implemented some improvements to bring this down to around 6-7 seconds.
 - Day 22 required a bunch of sketches on paper and a manually-specified topology. Folding the faces of the cube automatically would be much more fun.
 
 ## Selected Haskell ports
