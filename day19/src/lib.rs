@@ -4,6 +4,7 @@ use arrayvec::ArrayVec;
 use indoc::indoc;
 use nalgebra::Vector4;
 use priority_queue::PriorityQueue;
+use rayon::prelude::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use rustc_hash::FxHashSet;
 use std::{hash::Hash, str::FromStr, time::Instant};
 use Mineral::*;
@@ -306,35 +307,42 @@ fn explore_prio_max(spec: &BlueprintSpec) -> Option<State> {
 }
 
 pub fn part1(blueprints: &[Blueprint]) -> i32 {
-    let mut sum = 0;
-    for bp in blueprints {
-        let spec = bp.to_spec(TIME_MAX_PART1);
-        let best = explore_prio_max(&spec);
+    let sum: i32 = blueprints
+        .par_iter()
+        .map(|bp| {
+            let spec = bp.to_spec(TIME_MAX_PART1);
+            let best = explore_prio_max(&spec);
 
-        let id = bp.id;
-        let geodes = best.map(|b| b.resources[Geode as usize]).unwrap_or(0);
-        println!("part1 id {id} with {geodes} geodes");
+            let id = bp.id;
+            let geodes = best.map(|b| b.resources[Geode as usize]).unwrap_or(0);
+            println!("part1 id {id} with {geodes} geodes");
 
-        sum += id * geodes;
-    }
+            id * geodes
+        })
+        .sum();
+
     sum
 }
 
 pub fn part2(blueprints: &[Blueprint]) -> i32 {
-    let mut product = 1;
-    for bp in blueprints.iter().take(3) {
-        let t0 = Instant::now();
+    let product: i32 = blueprints
+        .par_iter()
+        .take(3)
+        .map(|bp| {
+            let t0 = Instant::now();
 
-        let spec = bp.to_spec(TIME_MAX_PART2);
-        let best = explore_prio_max(&spec);
+            let spec = bp.to_spec(TIME_MAX_PART2);
+            let best = explore_prio_max(&spec);
 
-        let id = bp.id;
-        let geodes = best.unwrap().resources[Geode as usize];
-        let elapsed = Instant::now() - t0;
-        println!("part2 id {id} with {geodes} geodes after {elapsed:#?}");
+            let id = bp.id;
+            let geodes = best.unwrap().resources[Geode as usize];
+            let elapsed = Instant::now() - t0;
+            println!("part2 id {id} with {geodes} geodes after {elapsed:#?}");
 
-        product *= geodes;
-    }
+            geodes
+        })
+        .product();
+
     product
 }
 
