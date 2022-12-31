@@ -4,13 +4,8 @@ use arrayvec::ArrayVec;
 use indoc::indoc;
 use nalgebra::Vector4;
 use priority_queue::PriorityQueue;
-use rustc_hash::{FxHashSet, FxHasher};
-use std::{
-    collections::{HashMap, HashSet, VecDeque},
-    hash::{BuildHasherDefault, Hash},
-    str::FromStr,
-    time::Instant,
-};
+use rustc_hash::FxHashSet;
+use std::{hash::Hash, str::FromStr, time::Instant};
 use Mineral::*;
 
 pub const TEST_INPUT: &str = indoc! {"
@@ -59,7 +54,8 @@ impl Blueprint {
 
         // calculate maximum possible consumption rate, given that we can
         // only build a single robot each minute: this is the max of resources
-        // required across all robots.
+        // required across all robots, and dictates the maximum number of
+        // useful robots of each type.
         let mut maximum_useful_robots = Vector4::zeros();
         for i in 0..3 {
             maximum_useful_robots[i] = ore_robot[i]
@@ -67,7 +63,7 @@ impl Blueprint {
                 .max(obsidian_robot[i])
                 .max(geode_robot[i]);
         }
-        // no limit on geodes
+        // no limit on geode-producing robots
         maximum_useful_robots[3] = i32::MAX;
 
         //dbg!(&maximum_useful_robots);
@@ -154,11 +150,15 @@ pub fn try_advance_with(spec: &BlueprintSpec, state: &State, new_robot: Mineral)
     let mut robots_after = state.robots;
     robots_after[new_robot as usize] += 1;
 
+    // update resources and advance state
     let mut new_state = State {
         resources: resources_after,
         ..*state
     }
     .advance();
+
+    // then finally update the number of robots _last_, after advancing
+    // the state; the order is important here.
     new_state.robots = robots_after;
 
     Some(new_state)
@@ -211,7 +211,14 @@ pub fn simple_max_potential_geodes(state: &State, max_time: usize) -> i32 {
     geodes + manufactured
 }
 
-pub fn explore_dfs_max(spec: &BlueprintSpec, state: &State, global_best: &mut Option<State>) {
+/// Original recursive DFS I used to solve the problem. I've replaced it with a faster
+/// priority-queue based version below.
+#[allow(dead_code)]
+pub fn explore_dfs_max_original(
+    spec: &BlueprintSpec,
+    state: &State,
+    global_best: &mut Option<State>,
+) {
     for next_state in possible_states_from(spec, state) {
         // skip if we're almost at termination and have no geode factories
         if next_state.time == spec.max_time - 1 && next_state.robots[Geode as usize] == 0 {
@@ -244,14 +251,16 @@ pub fn explore_dfs_max(spec: &BlueprintSpec, state: &State, global_best: &mut Op
         }
 
         // not complete yet; recurse
-        explore_dfs_max(spec, &next_state, global_best);
+        explore_dfs_max_original(spec, &next_state, global_best);
     }
 }
 
-pub fn explore_prio_max(spec: &BlueprintSpec) -> Option<State> {
+/// Fairly simple DFS using a priority queue based on an estimate
+/// for the maximum possible geodes from a given state; this is
+/// also used as an upper bound to reject states that cannot possibly
+/// improve on the existing best.
+fn explore_prio_max(spec: &BlueprintSpec) -> Option<State> {
     let mut global_best = None;
-
-    let mut rejected_count = 0;
 
     let mut visited: FxHashSet<State> = FxHashSet::default();
     let mut queue: PriorityQueue<State, i32> = PriorityQueue::new();
@@ -273,7 +282,7 @@ pub fn explore_prio_max(spec: &BlueprintSpec) -> Option<State> {
         }
 
         // explore from here
-        for w in possible_states_from(&spec, &v) {
+        for w in possible_states_from(spec, &v) {
             if !visited.contains(&w) {
                 visited.insert(w);
 
@@ -289,15 +298,9 @@ pub fn explore_prio_max(spec: &BlueprintSpec) -> Option<State> {
 
                 // otherwise add to queue for exploration
                 queue.push(w, max_potential);
-            } else {
-                // debugging
-                rejected_count += 1;
             }
         }
     }
-
-    let visited_count = visited.len();
-    dbg!((visited_count, rejected_count));
 
     global_best
 }
@@ -306,8 +309,6 @@ pub fn part1(blueprints: &[Blueprint]) -> i32 {
     let mut sum = 0;
     for bp in blueprints {
         let spec = bp.to_spec(TIME_MAX_PART1);
-        // let mut best = None;
-        // explore_dfs_max(&spec, &State::new(), &mut best);
         let best = explore_prio_max(&spec);
 
         let id = bp.id;
@@ -325,8 +326,6 @@ pub fn part2(blueprints: &[Blueprint]) -> i32 {
         let t0 = Instant::now();
 
         let spec = bp.to_spec(TIME_MAX_PART2);
-        //let mut best = None;
-        //explore_dfs_max(&spec, &State::new(), &mut best);
         let best = explore_prio_max(&spec);
 
         let id = bp.id;
@@ -348,10 +347,11 @@ mod tests {
     }
 
     #[test]
-    fn part1_blueprint1_correct() {
+    #[ignore = "original DFS algorithm takes too long to run in debug mode"]
+    fn part1_blueprint1_original_correct() {
         let spec = blueprints()[0].to_spec(TIME_MAX_PART1);
         let mut best = None;
-        explore_dfs_max(&spec, &State::new(), &mut best);
+        explore_dfs_max_original(&spec, &State::new(), &mut best);
         let best = best.unwrap();
         assert_eq!(best.resources[Geode as usize], 9);
         assert_eq!(best.time, TIME_MAX_PART1);
@@ -366,10 +366,11 @@ mod tests {
     }
 
     #[test]
-    fn part1_blueprint2_correct() {
+    #[ignore = "original DFS algorithm takes too long to run in debug mode"]
+    fn part1_blueprint2_original_correct() {
         let spec = blueprints()[1].to_spec(TIME_MAX_PART1);
         let mut best = None;
-        explore_dfs_max(&spec, &State::new(), &mut best);
+        explore_dfs_max_original(&spec, &State::new(), &mut best);
         let best = best.unwrap();
         assert_eq!(best.resources[Geode as usize], 12);
         assert_eq!(best.time, TIME_MAX_PART1);
@@ -393,9 +394,7 @@ mod tests {
     #[test]
     fn part2_blueprint1_correct() {
         let spec = blueprints()[0].to_spec(TIME_MAX_PART2);
-        let mut best = None;
-        explore_dfs_max(&spec, &State::new(), &mut best);
-        let best = best.unwrap();
+        let best = explore_prio_max(&spec).unwrap();
         assert_eq!(best.resources[Geode as usize], 56);
         assert_eq!(best.time, TIME_MAX_PART2);
     }
@@ -403,9 +402,7 @@ mod tests {
     #[test]
     fn part2_blueprint2_correct() {
         let spec = blueprints()[1].to_spec(TIME_MAX_PART2);
-        let mut best = None;
-        explore_dfs_max(&spec, &State::new(), &mut best);
-        let best = best.unwrap();
+        let best = explore_prio_max(&spec).unwrap();
         assert_eq!(best.resources[Geode as usize], 62);
         assert_eq!(best.time, TIME_MAX_PART2);
     }

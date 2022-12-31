@@ -12,14 +12,14 @@ pub fn parse_input(input: &str) -> AnyResult<Vec<Blueprint>> {
 
     let mut blueprints = vec![];
     for line in input.lines() {
-        let (blueprint_str, robots_str) = line.split_once(":").ok_anyhow()?;
+        let (blueprint_str, robots_str) = line.split_once(':').ok_anyhow()?;
         let match_blueprint = re_blueprint.captures(blueprint_str).ok_anyhow()?;
 
-        let mut blueprint = Blueprint::default();
-        blueprint.id = match_blueprint.get(1).ok_anyhow()?.as_str().parse()?;
+        let id = match_blueprint.get(1).ok_anyhow()?.as_str().parse()?;
+        let mut blueprint = Blueprint { id, ..Default::default() };
 
         for robot_spec_str in robots_str
-            .split(".")
+            .split('.')
             .map(str::trim)
             .filter(|s| !s.is_empty())
         {
